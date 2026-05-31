@@ -587,8 +587,20 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  * v2.5.0 (2026-06-01) — Admin Dashboard Pro: growth chart, CSV export,
  *                       user map (Leaflet), time filter, new-user notify,
  *                       ban/unban + admin → user messaging. Schema v2.5.
+ * v2.6.0 (2026-06-01) — Signup: date-of-birth field replaces age input.
+ * v2.7.0 (2026-06-01) — Username login: signup/login with username,
+ *                       email becomes optional.
+ * v2.8.0 (2026-06-01) — Friends system: search by username, request /
+ *                       accept / decline. Schema v2.8.
+ * v2.9.0 (2026-06-01) — Friend Code: 6-char unique IDs. Add friends by
+ *                       sharing your code. Schema v2.9.
+ * v3.0.0 (2026-06-01) — SHARED IOU: Split bills with REAL friends from
+ *                       your friend list. IOU requests go through a
+ *                       pending → accept/decline flow; IOU appears in
+ *                       BOTH parties' books once accepted. IOU Inbox
+ *                       added to Settings with badge. Schema v3.0.
  * ==================================================================== */
-const APP_VERSION = 'v2.9.0';
+const APP_VERSION = 'v3.0.0';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -897,6 +909,30 @@ const I18N = {
     friends_pending: 'ກຳລັງລໍຖ້າ',
     friends_no_friends: 'ຍັງບໍ່ມີໝູ່',
     friends_confirm_remove: 'ລົບໝູ່ນີ້?',
+    // v3.0.0 — Shared IOU
+    shared_iou_pick: '📒 ເລືອກຈາກໝູ່',
+    shared_iou_picker_title: 'ເລືອກໝູ່',
+    shared_iou_picker_hint: 'ເລືອກໝູ່ເພື່ອສ້າງ IOU ຮ່ວມກັນ',
+    shared_iou_no_friends: 'ຍັງບໍ່ມີໝູ່ ໄປເພີ່ມໝູ່ກ່ອນ',
+    shared_iou_linked: '🔗 ຜູກກັບບັນຊີ',
+    shared_iou_unlink: 'ຍົກເລີກການຜູກ',
+    shared_iou_send_request: 'ສົ່ງຄຳຂໍຢືນຢັນ',
+    shared_iou_send_hint: 'ໝູ່ຈະໄດ້ຮັບຄຳຂໍຢືນຢັນກ່ອນ IOU ມີຜົນ',
+    iou_status_pending: '⏳ ລໍຢືນຢັນ',
+    iou_status_accepted: '✓ ຍອມຮັບແລ້ວ',
+    iou_status_declined: '✗ ຖືກປະຕິເສດ',
+    iou_status_settled: '✓ ຊຳລະແລ້ວ',
+    iou_inbox: '📬 ກ່ອງຄຳຂໍ IOU',
+    iou_inbox_title: '📬 ກ່ອງຄຳຂໍ IOU',
+    iou_inbox_empty: 'ບໍ່ມີຄຳຂໍທີ່ລໍຄອຍ',
+    iou_inbox_from: 'ຈາກ',
+    iou_inbox_accept: '✓ ຮັບ',
+    iou_inbox_decline: '✗ ປະຕິເສດ',
+    iou_inbox_amount: 'ຈຳນວນ',
+    iou_inbox_note: 'ໝາຍເຫດ',
+    iou_inbox_date: 'ວັນທີ',
+    iou_inbox_accepted: 'ຍອມຮັບແລ້ວ — IOU ປະກົດໃນບັນຊີຂອງທ່ານ',
+    iou_inbox_declined: 'ປະຕິເສດແລ້ວ',
     auth_password: 'ລະຫັດຜ່ານ',
     auth_password_min: 'ຢ່າງໜ້ອຍ 6 ຕົວອັກສອນ',
     auth_login_btn: 'ເຂົ້າສູ່ລະບົບ',
@@ -1215,6 +1251,30 @@ const I18N = {
     friends_pending: 'กำลังรอ',
     friends_no_friends: 'ยังไม่มีเพื่อน',
     friends_confirm_remove: 'ลบเพื่อนคนนี้?',
+    // v3.0.0 — Shared IOU
+    shared_iou_pick: '📒 เลือกจากเพื่อน',
+    shared_iou_picker_title: 'เลือกเพื่อน',
+    shared_iou_picker_hint: 'เลือกเพื่อนเพื่อสร้าง IOU ร่วมกัน',
+    shared_iou_no_friends: 'ยังไม่มีเพื่อน ไปเพิ่มเพื่อนก่อน',
+    shared_iou_linked: '🔗 ผูกกับบัญชี',
+    shared_iou_unlink: 'ยกเลิกการผูก',
+    shared_iou_send_request: 'ส่งคำขอยืนยัน',
+    shared_iou_send_hint: 'เพื่อนจะได้รับคำขอยืนยันก่อน IOU จะมีผล',
+    iou_status_pending: '⏳ รอยืนยัน',
+    iou_status_accepted: '✓ ยอมรับแล้ว',
+    iou_status_declined: '✗ ถูกปฏิเสธ',
+    iou_status_settled: '✓ ชำระแล้ว',
+    iou_inbox: '📬 กล่องคำขอ IOU',
+    iou_inbox_title: '📬 กล่องคำขอ IOU',
+    iou_inbox_empty: 'ไม่มีคำขอที่รออยู่',
+    iou_inbox_from: 'จาก',
+    iou_inbox_accept: '✓ ยอมรับ',
+    iou_inbox_decline: '✗ ปฏิเสธ',
+    iou_inbox_amount: 'จำนวน',
+    iou_inbox_note: 'หมายเหตุ',
+    iou_inbox_date: 'วันที่',
+    iou_inbox_accepted: 'ยอมรับแล้ว — IOU จะปรากฏในบัญชีของคุณ',
+    iou_inbox_declined: 'ปฏิเสธแล้ว',
     auth_password: 'รหัสผ่าน',
     auth_password_min: 'อย่างน้อย 6 ตัวอักษร',
     auth_login_btn: 'เข้าสู่ระบบ',
@@ -1533,6 +1593,30 @@ const I18N = {
     friends_pending: 'Pending',
     friends_no_friends: 'No friends yet',
     friends_confirm_remove: 'Remove this friend?',
+    // v3.0.0 — Shared IOU
+    shared_iou_pick: '📒 Pick from friends',
+    shared_iou_picker_title: 'Pick a Friend',
+    shared_iou_picker_hint: 'Choose a friend to create a shared IOU',
+    shared_iou_no_friends: 'No friends yet — add some first',
+    shared_iou_linked: '🔗 Linked to account',
+    shared_iou_unlink: 'Unlink',
+    shared_iou_send_request: 'Send confirmation request',
+    shared_iou_send_hint: 'Friend will receive a request before the IOU is active',
+    iou_status_pending: '⏳ Pending',
+    iou_status_accepted: '✓ Accepted',
+    iou_status_declined: '✗ Declined',
+    iou_status_settled: '✓ Settled',
+    iou_inbox: '📬 IOU Inbox',
+    iou_inbox_title: '📬 IOU Inbox',
+    iou_inbox_empty: 'No pending requests',
+    iou_inbox_from: 'From',
+    iou_inbox_accept: '✓ Accept',
+    iou_inbox_decline: '✗ Decline',
+    iou_inbox_amount: 'Amount',
+    iou_inbox_note: 'Note',
+    iou_inbox_date: 'Date',
+    iou_inbox_accepted: 'Accepted — IOU now in your books',
+    iou_inbox_declined: 'Declined',
     auth_password: 'Password',
     auth_password_min: 'At least 6 characters',
     auth_login_btn: 'Log In',
@@ -2138,7 +2222,13 @@ const iouFromRow = r => ({
   date: r.date,
   status: r.status,
   createdAt: r.created_at,
-  paidAt: r.paid_at
+  paidAt: r.paid_at,
+  // v3.0.0 — Shared IOU fields
+  counterpartyUserId: r.counterparty_user_id || null,
+  sharedStatus: r.shared_status || null,
+  sharedInitiator: r.shared_initiator || null,
+  sharedRespondedAt: r.shared_responded_at || null,
+  sharedGroupId: r.shared_group_id || null
 });
 const iouToRow = (iou, userId) => ({
   ...(typeof iou.id === 'string' && iou.id.length === 36 ? {
@@ -2153,7 +2243,13 @@ const iouToRow = (iou, userId) => ({
   emoji: iou.emoji || '🤝',
   date: iou.date,
   status: iou.status || 'pending',
-  paid_at: iou.paidAt || null
+  paid_at: iou.paidAt || null,
+  // v3.0.0 — Shared IOU fields
+  counterparty_user_id: iou.counterpartyUserId || null,
+  shared_status: iou.sharedStatus || null,
+  shared_initiator: iou.sharedInitiator || null,
+  shared_responded_at: iou.sharedRespondedAt || null,
+  shared_group_id: iou.sharedGroupId || null
 });
 
 // — LOANS —
@@ -4601,6 +4697,11 @@ function Paruay() {
   const [friends, setFriends] = useState([]);
   const [friendIncoming, setFriendIncoming] = useState([]); // pending requests TO me
   const [friendOutgoing, setFriendOutgoing] = useState([]); // pending requests FROM me
+  // v3.0.0 — Shared IOU
+  const [showFriendPicker, setShowFriendPicker] = useState(null); // { mode: 'split', friendRowId } or null
+  const [showIOUInbox, setShowIOUInbox] = useState(false);
+  const [iouInbox, setIOUInbox] = useState([]); // pending shared IOUs awaiting MY acceptance
+  const [sendIOURequest, setSendIOURequest] = useState(true); // checkbox state — default ON when ≥1 linked friend
   const [toast, setToast] = useState('');
 
   // Add-transaction form
@@ -4887,6 +4988,126 @@ function Paruay() {
     }
   };
 
+  // ── v3.0.0 — Shared IOU Inbox helpers ──
+  // Load pending shared IOUs where I'm the counterparty (someone sent ME a request)
+  const loadIOUInbox = async userId => {
+    if (!supabase || !userId) return;
+    try {
+      const {
+        data: rows,
+        error
+      } = await supabase.from('ious').select('*').eq('counterparty_user_id', userId).eq('shared_status', 'pending');
+      if (error) throw error;
+      // Fetch initiator profiles
+      const initiatorIds = [...new Set((rows || []).map(r => r.shared_initiator).filter(Boolean))];
+      let profMap = new Map();
+      if (initiatorIds.length > 0) {
+        const {
+          data: profs
+        } = await supabase.from('profiles').select('id, username, full_name').in('id', initiatorIds);
+        (profs || []).forEach(p => profMap.set(p.id, p));
+      }
+      const inboxRows = (rows || []).map(r => ({
+        ...iouFromRow(r),
+        sharedStatus: r.shared_status,
+        sharedInitiator: r.shared_initiator,
+        sharedGroupId: r.shared_group_id,
+        counterpartyUserId: r.counterparty_user_id,
+        // raw db id is needed for updates
+        dbId: r.id,
+        initiatorProfile: profMap.get(r.shared_initiator) || {
+          id: r.shared_initiator,
+          username: '?',
+          full_name: ''
+        }
+      }));
+      setIOUInbox(inboxRows);
+    } catch (e) {
+      console.error('loadIOUInbox', e);
+    }
+  };
+
+  // Accept a pending shared IOU request → flip status to accepted; trigger duplicates row into my book
+  const acceptIOURequest = async item => {
+    if (!supabase || !currentUser) return;
+    try {
+      // 1) Update original row → accepted
+      const nowIso = new Date().toISOString();
+      const {
+        error: upErr
+      } = await supabase.from('ious').update({
+        shared_status: 'accepted',
+        shared_responded_at: nowIso
+      }).eq('id', item.dbId);
+      if (upErr) throw upErr;
+
+      // 2) Insert MIRROR row in my (counterparty's) book with OPPOSITE direction.
+      //    Initiator wrote: "X owes ME" (lent) — so for ME the mirror is "I owe X" (borrowed).
+      //    Implementation: the initiator's IOU has them as user_id with friendId=me. We insert
+      //    an IOU owned by ME with friendId=initiator + amount NEGATIVE to denote borrowed.
+      //    However Paruay's IOU model treats positive amount + friendId as "they owe me" by default.
+      //    To preserve direction we use a sign convention: negative amount = "I owe them".
+      const mirrorId = typeof genIouId === 'function' ? genIouId() : 'iou-' + Math.random().toString(36).slice(2);
+      const mirrorRow = {
+        iou_id: mirrorId,
+        user_id: currentUser.id,
+        tx_id: null,
+        friend_id: item.sharedInitiator,
+        friend_name: item.initiatorProfile.full_name || item.initiatorProfile.username || '?',
+        // Negative = I owe them
+        amount: -Math.abs(item.amount),
+        note: item.note,
+        emoji: item.emoji || null,
+        date: item.date,
+        status: 'pending',
+        created_at: nowIso,
+        // shared bookkeeping
+        counterparty_user_id: item.sharedInitiator,
+        shared_status: 'accepted',
+        shared_initiator: item.sharedInitiator,
+        shared_responded_at: nowIso,
+        shared_group_id: item.sharedGroupId || null
+      };
+      const {
+        error: insErr
+      } = await supabase.from('ious').insert(mirrorRow);
+      if (insErr) throw insErr;
+
+      // 3) Refresh inbox + my IOU list
+      loadIOUInbox(currentUser.id);
+      // Re-load IOU list for current user
+      try {
+        const {
+          data: iouRows
+        } = await supabase.from('ious').select('*').order('created_at', {
+          ascending: false
+        });
+        if (iouRows) setIOUs(iouRows.map(iouFromRow));
+      } catch (_) {}
+      showToast(t.iou_inbox_accepted || 'Accepted');
+    } catch (e) {
+      console.error('acceptIOURequest', e);
+      showToast('Error: ' + (e.message || e));
+    }
+  };
+  const declineIOURequest = async item => {
+    if (!supabase || !currentUser) return;
+    try {
+      const {
+        error
+      } = await supabase.from('ious').update({
+        shared_status: 'declined',
+        shared_responded_at: new Date().toISOString()
+      }).eq('id', item.dbId);
+      if (error) throw error;
+      loadIOUInbox(currentUser.id);
+      showToast(t.iou_inbox_declined || 'Declined');
+    } catch (e) {
+      console.error('declineIOURequest', e);
+      showToast('Error: ' + (e.message || e));
+    }
+  };
+
   // ── LOAD ALL DATA FROM CLOUD AFTER LOGIN ──
   const loadCloudData = async userId => {
     if (!supabase || !userId) return;
@@ -4981,6 +5202,8 @@ function Paruay() {
       });
       // v2.8.0 — load friendships
       loadFriendships(userId);
+      // v3.0.0 — load pending shared IOU requests
+      loadIOUInbox(userId);
     } catch (e) {
       console.error('cloud load', e);
       setCloudError(e.message || String(e));
@@ -6457,12 +6680,15 @@ function Paruay() {
     // If split mode is enabled for an expense, create IOUs for each friend
     if (modal === 'split') {
       // Build canonical members list (me + friends)
+      // v3.0.0 — preserve userId if the row is linked to a real friend
       const members = [{
         id: ME_ID,
         name: t.me
       }, ...splitFriends.map((f, i) => ({
         id: f.id,
-        name: (f.name || '').trim() || `${t.person_n} ${i + 1}`
+        name: (f.name || '').trim() || `${t.person_n} ${i + 1}`,
+        userId: f.userId || null,
+        linkedUsername: f.linkedUsername || null
       }))];
       // Normalize items: only those with name + price > 0, and ensure memberIds
       const validItems = splitItems.filter(it => it.name.trim() && parseAmount(it.price) > 0).map(it => ({
@@ -6488,12 +6714,15 @@ function Paruay() {
         shares,
         total: tx.amount
       };
+      // v3.0.0 — shared group id (one per bill, so all IOUs from this split are linked)
+      const sharedGroupId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'grp-' + Math.random().toString(36).slice(2);
       // Create IOUs only for friends with non-zero shares
       const newIOUs = [];
       members.forEach(m => {
         if (m.id === ME_ID) return;
         const amt = shares[m.id] || 0;
         if (amt <= 0) return;
+        const isLinked = !!m.userId && sendIOURequest;
         newIOUs.push({
           id: genIouId(),
           txId: tx.id,
@@ -6504,7 +6733,12 @@ function Paruay() {
           emoji: tx.categoryEmoji,
           date: tx.date,
           status: 'pending',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          // v3.0.0 — Shared IOU fields (only set when friend is linked + checkbox ON)
+          counterpartyUserId: isLinked ? m.userId : null,
+          sharedStatus: isLinked ? 'pending' : null,
+          sharedInitiator: isLinked && currentUser ? currentUser.id : null,
+          sharedGroupId: isLinked ? sharedGroupId : null
         });
       });
       persistIOUs([...newIOUs, ...ious]);
@@ -6512,6 +6746,8 @@ function Paruay() {
     persist([tx, ...transactions]);
     const m = modal;
     setModal(null);
+    // v3.0.0 — reset the per-form flags
+    setSendIOURequest(true);
     showToast(m === 'income' ? t.toast_in_saved : m === 'split' ? t.toast_split_saved : t.toast_out_saved);
   };
   const remove = id => persist(transactions.filter(tx => tx.id !== id));
@@ -9476,6 +9712,29 @@ function Paruay() {
         name
       } : f));
     };
+    // v3.0.0 — link a row to a real Supabase friend (or unlink)
+    const linkFriend = (fid, friendProfile) => {
+      setSplitFriends(splitFriends.map(f => {
+        if (f.id !== fid) return f;
+        if (!friendProfile) {
+          // unlink
+          const {
+            userId,
+            linkedUsername,
+            ...rest
+          } = f;
+          return {
+            ...rest
+          };
+        }
+        return {
+          ...f,
+          userId: friendProfile.id,
+          linkedUsername: friendProfile.username,
+          name: friendProfile.full_name || friendProfile.username || f.name
+        };
+      }));
+    };
     const updateItem = (idx, patch) => {
       const next = splitItems.map((x, i) => i === idx ? {
         ...x,
@@ -9586,6 +9845,12 @@ function Paruay() {
       key: f.id,
       style: {
         display: 'flex',
+        flexDirection: 'column',
+        gap: 3
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
         gap: 4
       }
     }, /*#__PURE__*/React.createElement("input", {
@@ -9593,17 +9858,44 @@ function Paruay() {
       value: f.name,
       onChange: e => renameFriend(f.id, e.target.value),
       placeholder: `${t.friend_name} ${i + 1}`,
+      disabled: !!f.userId,
       className: langClass,
       style: {
         flex: 1,
         padding: '8px 10px',
         borderRadius: 8,
-        border: '1px solid rgba(127,85,57,0.2)',
-        background: '#F5EFE0',
+        border: '1px solid ' + (f.userId ? 'rgba(45,90,71,0.4)' : 'rgba(127,85,57,0.2)'),
+        background: f.userId ? '#E8F0E8' : '#F5EFE0',
         fontSize: 13,
-        outline: 'none'
+        outline: 'none',
+        color: f.userId ? '#1B4332' : '#3D2817',
+        fontWeight: f.userId ? 600 : 400
       }
-    }), splitFriends.length > 1 && /*#__PURE__*/React.createElement("button", {
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        if (f.userId) {
+          linkFriend(f.id, null);
+        } else {
+          setShowFriendPicker({
+            mode: 'split',
+            friendRowId: f.id
+          });
+        }
+      },
+      title: f.userId ? t.shared_iou_unlink : t.shared_iou_pick,
+      style: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        background: f.userId ? '#2D5A47' : 'transparent',
+        color: f.userId ? '#F5EFE0' : '#7F5539',
+        border: f.userId ? 'none' : '1px solid rgba(127,85,57,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 14
+      }
+    }, f.userId ? '🔗' : '📒'), splitFriends.length > 1 && /*#__PURE__*/React.createElement("button", {
       onClick: () => removeFriend(f.id),
       style: {
         width: 32,
@@ -9617,7 +9909,16 @@ function Paruay() {
       }
     }, /*#__PURE__*/React.createElement(Trash2, {
       size: 14
-    })))), /*#__PURE__*/React.createElement("button", {
+    }))), f.userId && /*#__PURE__*/React.createElement("span", {
+      className: langClass,
+      style: {
+        fontSize: 10,
+        color: '#2D5A47',
+        fontWeight: 600,
+        paddingLeft: 4,
+        fontStyle: 'italic'
+      }
+    }, "\uD83D\uDD17 @", f.linkedUsername || '?'))), /*#__PURE__*/React.createElement("button", {
       onClick: addFriend,
       className: langClass,
       style: {
@@ -9630,7 +9931,44 @@ function Paruay() {
         fontWeight: 600,
         textAlign: 'left'
       }
-    }, t.add_person)), /*#__PURE__*/React.createElement("div", {
+    }, t.add_person)), splitFriends.some(f => f.userId) && /*#__PURE__*/React.createElement("label", {
+      className: langClass,
+      style: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: '10px 12px',
+        marginBottom: 12,
+        background: '#FFF8E7',
+        borderRadius: 10,
+        border: '1px solid rgba(212,165,116,0.4)',
+        cursor: 'pointer'
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: sendIOURequest,
+      onChange: e => setSendIOURequest(e.target.checked),
+      style: {
+        marginTop: 2,
+        accentColor: '#2D5A47'
+      }
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 700,
+        color: '#1B4332'
+      }
+    }, t.shared_iou_send_request), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: '#7F5539',
+        marginTop: 2
+      }
+    }, t.shared_iou_send_hint))), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         justifyContent: 'space-between',
@@ -10472,7 +10810,39 @@ function Paruay() {
       fontSize: 11,
       fontWeight: 900
     }
-  }, friendIncoming.length)), currentUser && unreadMessages.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, friendIncoming.length)), currentUser && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      // Refresh on open
+      loadIOUInbox(currentUser.id);
+      setShowIOUInbox(true);
+    },
+    className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
+    style: {
+      width: '100%',
+      padding: 12,
+      marginBottom: 10,
+      borderRadius: 12,
+      background: 'linear-gradient(135deg, #D4A574, #7F5539)',
+      color: '#F5EFE0',
+      fontSize: 13,
+      fontWeight: 700,
+      border: 'none',
+      boxShadow: '0 2px 4px rgba(127,85,57,0.25)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", null, I18N[sLang].iou_inbox || '📬 IOU Inbox'), iouInbox.length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: '#AA3C28',
+      color: '#F5EFE0',
+      padding: '2px 8px',
+      borderRadius: 999,
+      fontSize: 11,
+      fontWeight: 900
+    }
+  }, iouInbox.length)), currentUser && unreadMessages.length > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowInbox(true),
     className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
     style: {
@@ -11331,7 +11701,361 @@ function Paruay() {
         fontSize: 18
       }
     }, "\uD83D\uDCCB"), " ", t.share))));
-  })(), showIOUList && (() => {
+  })(), showFriendPicker && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setShowFriendPicker(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(42,31,26,0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 90,
+      padding: 16,
+      animation: 'fadeUp 0.2s ease-out'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    className: langClass,
+    style: {
+      width: '100%',
+      maxWidth: 380,
+      background: '#FBF6E9',
+      borderRadius: 18,
+      padding: 18,
+      boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+      maxHeight: '80vh',
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 17,
+      fontWeight: 800,
+      color: '#1B4332'
+    }
+  }, t.shared_iou_picker_title), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowFriendPicker(null),
+    style: {
+      background: 'none',
+      padding: 4,
+      fontSize: 20
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 12,
+      color: '#7F5539',
+      marginBottom: 12
+    }
+  }, t.shared_iou_picker_hint), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowY: 'auto',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6
+    }
+  }, friends.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      padding: '20px 12px',
+      textAlign: 'center',
+      fontSize: 13,
+      color: '#7F5539',
+      fontStyle: 'italic',
+      background: '#FFF8E7',
+      borderRadius: 10
+    }
+  }, t.shared_iou_no_friends) : friends.map(f => /*#__PURE__*/React.createElement("button", {
+    key: f.id,
+    onClick: () => {
+      // Find the linkFriend helper via re-setting splitFriends here
+      setSplitFriends(prev => prev.map(row => {
+        if (row.id !== showFriendPicker.friendRowId) return row;
+        return {
+          ...row,
+          userId: f.id,
+          linkedUsername: f.username,
+          name: f.full_name || f.username || row.name
+        };
+      }));
+      setShowFriendPicker(null);
+    },
+    className: langClass,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '10px 12px',
+      borderRadius: 10,
+      background: '#F5EFE0',
+      border: '1px solid rgba(127,85,57,0.18)',
+      textAlign: 'left',
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 36,
+      height: 36,
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
+      color: '#F5EFE0',
+      fontWeight: 800,
+      fontSize: 14,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0
+    }
+  }, (f.full_name || f.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#1B4332',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
+    }
+  }, f.full_name || f.username), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#7F5539'
+    }
+  }, "@", f.username))))))), showIOUInbox && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setShowIOUInbox(false),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(42,31,26,0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      zIndex: 90,
+      padding: 16,
+      animation: 'fadeUp 0.2s ease-out'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    className: langClass,
+    style: {
+      width: '100%',
+      maxWidth: 440,
+      background: '#FBF6E9',
+      borderRadius: 18,
+      padding: 18,
+      boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+      maxHeight: '85vh',
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 17,
+      fontWeight: 800,
+      color: '#1B4332'
+    }
+  }, t.iou_inbox_title, iouInbox.length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      marginLeft: 8,
+      padding: '2px 8px',
+      borderRadius: 999,
+      background: '#AA3C28',
+      color: '#F5EFE0',
+      fontSize: 11,
+      fontWeight: 900
+    }
+  }, iouInbox.length)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowIOUInbox(false),
+    style: {
+      background: 'none',
+      padding: 4,
+      fontSize: 20
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowY: 'auto',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10
+    }
+  }, iouInbox.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      padding: '32px 12px',
+      textAlign: 'center',
+      fontSize: 13,
+      color: '#7F5539',
+      fontStyle: 'italic',
+      background: '#FFF8E7',
+      borderRadius: 10
+    }
+  }, t.iou_inbox_empty) : iouInbox.map(item => /*#__PURE__*/React.createElement("div", {
+    key: item.dbId,
+    className: langClass,
+    style: {
+      padding: 14,
+      borderRadius: 14,
+      background: '#FFF8E7',
+      border: '1.5px solid rgba(212,165,116,0.4)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 40,
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
+      color: '#F5EFE0',
+      fontWeight: 800,
+      fontSize: 16,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0
+    }
+  }, (item.initiatorProfile.full_name || item.initiatorProfile.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#7F5539'
+    }
+  }, t.iou_inbox_from), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 700,
+      color: '#1B4332',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
+    }
+  }, item.initiatorProfile.full_name || item.initiatorProfile.username), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#7F5539'
+    }
+  }, "@", item.initiatorProfile.username || '?'))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#FBF6E9',
+      borderRadius: 10,
+      padding: 10,
+      marginBottom: 10,
+      border: '1px solid rgba(127,85,57,0.12)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: '#7F5539'
+    }
+  }, t.iou_inbox_amount), /*#__PURE__*/React.createElement("span", {
+    className: "display",
+    style: {
+      fontSize: 17,
+      fontWeight: 800,
+      color: '#AA3C28'
+    }
+  }, "\u20AD ", fmt(item.amount))), item.note && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: '#7F5539'
+    }
+  }, t.iou_inbox_note), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: '#2A1F1A',
+      fontWeight: 600
+    }
+  }, item.emoji, " ", item.note)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: '#7F5539'
+    }
+  }, t.iou_inbox_date), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: '#2A1F1A'
+    }
+  }, item.date))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => acceptIOURequest(item),
+    className: langClass,
+    style: {
+      padding: 12,
+      borderRadius: 10,
+      background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
+      color: '#F5EFE0',
+      fontSize: 13,
+      fontWeight: 700,
+      border: 'none',
+      boxShadow: '0 2px 4px rgba(27,67,50,0.25)'
+    }
+  }, t.iou_inbox_accept), /*#__PURE__*/React.createElement("button", {
+    onClick: () => declineIOURequest(item),
+    className: langClass,
+    style: {
+      padding: 12,
+      borderRadius: 10,
+      background: 'transparent',
+      color: '#AA3C28',
+      fontSize: 13,
+      fontWeight: 700,
+      border: '1.5px solid rgba(170,60,40,0.4)'
+    }
+  }, t.iou_inbox_decline))))))), showIOUList && (() => {
     const pending = ious.filter(i => i.status === 'pending');
     const paid = ious.filter(i => i.status === 'paid').slice(0, 10);
     return /*#__PURE__*/React.createElement("div", {
@@ -11523,63 +12247,86 @@ function Paruay() {
             display: 'flex',
             flexDirection: 'column'
           }
-        }, groupIOUs.map(iou => /*#__PURE__*/React.createElement("div", {
-          key: iou.id,
-          style: {
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '10px 14px',
-            borderTop: '1px solid rgba(127,85,57,0.08)'
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          style: {
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: '#D4A574',
-            flexShrink: 0,
-            marginLeft: 8
-          }
-        }), /*#__PURE__*/React.createElement("span", {
-          className: langClass,
-          style: {
-            flex: 1,
-            fontSize: 13,
-            fontWeight: 600,
-            color: '#2A1F1A',
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }
-        }, iou.friendName), /*#__PURE__*/React.createElement("span", {
-          className: "display",
-          style: {
-            fontSize: 14,
-            fontWeight: 700,
-            color: '#D4A574',
-            whiteSpace: 'nowrap'
-          }
-        }, "\u20AD ", fmt(iou.amount)), /*#__PURE__*/React.createElement("button", {
-          onClick: e => {
-            e.stopPropagation();
-            setConfirmPaidIOU(iou);
-          },
-          title: t.mark_paid,
-          style: {
-            width: 30,
-            height: 30,
-            borderRadius: 9,
-            background: '#1B4332',
-            color: '#F5EFE0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }
-        }, /*#__PURE__*/React.createElement(Check, {
-          size: 14
-        }))))));
+        }, groupIOUs.map(iou => {
+          // v3.0.0 — Shared IOU status badge
+          const ss = iou.sharedStatus;
+          const isBorrow = iou.amount < 0; // negative = I owe them
+          return /*#__PURE__*/React.createElement("div", {
+            key: iou.id,
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 14px',
+              borderTop: '1px solid rgba(127,85,57,0.08)'
+            }
+          }, /*#__PURE__*/React.createElement("div", {
+            style: {
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#D4A574',
+              flexShrink: 0,
+              marginLeft: 8
+            }
+          }), /*#__PURE__*/React.createElement("div", {
+            style: {
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
+            }
+          }, /*#__PURE__*/React.createElement("span", {
+            className: langClass,
+            style: {
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#2A1F1A',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }
+          }, iou.friendName), ss && /*#__PURE__*/React.createElement("span", {
+            className: langClass,
+            style: {
+              fontSize: 9,
+              fontWeight: 700,
+              alignSelf: 'flex-start',
+              padding: '1px 6px',
+              borderRadius: 999,
+              background: ss === 'pending' ? '#FFF3CD' : ss === 'accepted' ? '#D4EDDA' : ss === 'declined' ? '#F8D7DA' : '#E2E3E5',
+              color: ss === 'pending' ? '#856404' : ss === 'accepted' ? '#155724' : ss === 'declined' ? '#721C24' : '#383D41',
+              border: '1px solid ' + (ss === 'pending' ? '#FFE69C' : ss === 'accepted' ? '#A8D8A8' : ss === 'declined' ? '#F1A0A8' : '#C6C8CA')
+            }
+          }, ss === 'pending' && t.iou_status_pending, ss === 'accepted' && t.iou_status_accepted, ss === 'declined' && t.iou_status_declined, ss === 'settled' && t.iou_status_settled)), /*#__PURE__*/React.createElement("span", {
+            className: "display",
+            style: {
+              fontSize: 14,
+              fontWeight: 700,
+              color: isBorrow ? '#AA3C28' : '#D4A574',
+              whiteSpace: 'nowrap'
+            }
+          }, isBorrow ? '-' : '', "\u20AD ", fmt(Math.abs(iou.amount))), /*#__PURE__*/React.createElement("button", {
+            onClick: e => {
+              e.stopPropagation();
+              setConfirmPaidIOU(iou);
+            },
+            title: t.mark_paid,
+            style: {
+              width: 30,
+              height: 30,
+              borderRadius: 9,
+              background: '#1B4332',
+              color: '#F5EFE0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }
+          }, /*#__PURE__*/React.createElement(Check, {
+            size: 14
+          })));
+        })));
       }));
     })(), paid.length > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
