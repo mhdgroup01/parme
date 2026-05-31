@@ -603,8 +603,16 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       friends about open IOUs, message them, and
  *                       sync settle status between BOTH books with
  *                       a confirmation step. Schema v3.1.
+ * v3.2.0 (2026-06-01) — Friend Loan: link loans to real friends from
+ *                       your friend list. Pending → accept/decline
+ *                       flow; loan appears in BOTH parties' books
+ *                       once accepted (with opposite sign). Schema v3.2.
+ * v3.3.0 (2026-06-01) — Trip Shared Expense: long-lived groups for
+ *                       roommates / trips. Invite friends, log who
+ *                       paid what, smart settlement algorithm computes
+ *                       minimum transactions to balance. Schema v3.3.
  * ==================================================================== */
-const APP_VERSION = 'v3.1.0';
+const APP_VERSION = 'v3.3.0';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -961,6 +969,78 @@ const I18N = {
     notif_clear_all: 'ລ້າງທີ່ອ່ານແລ້ວ',
     notif_for_iou: 'ສຳລັບ IOU:',
     notif_settled_toast: '🎉 IOU ຊຳລະຄົບ — ບັນທຶກໃນທັງສອງບັນຊີ',
+    // v3.2.0 — Friend Loan
+    loan_pick_friend: '📒 ເລືອກຈາກໝູ່',
+    loan_linked: '🔗 ຜູກກັບບັນຊີ',
+    loan_unlink: 'ຍົກເລີກ',
+    loan_send_request: 'ສົ່ງຄຳຂໍກູ້ຢືມ',
+    loan_send_hint: 'ໝູ່ຈະໄດ້ຮັບຄຳຂໍຢືນຢັນກ່ອນເງິນກູ້ມີຜົນ',
+    loan_status_pending: '⏳ ລໍຢືນຢັນ',
+    loan_status_accepted: '✓ ຍອມຮັບແລ້ວ',
+    loan_status_declined: '✗ ຖືກປະຕິເສດ',
+    loan_status_settled: '✓ ຊຳລະແລ້ວ',
+    loan_inbox_accept: '✓ ຍອມຮັບເງິນກູ້',
+    loan_inbox_decline: '✗ ປະຕິເສດ',
+    loan_inbox_principal: 'ເງິນຕົ້ນ',
+    loan_inbox_rate: 'ດອກເບ້ຍ',
+    loan_inbox_period: 'ໄລຍະ',
+    loan_request_section: '💰 ຄຳຂໍກູ້ຢືມເງິນ',
+    loan_request_accepted: '✓ ຍອມຮັບເງິນກູ້ແລ້ວ — ບັນທຶກໃນບັນຊີ',
+    loan_request_declined: 'ປະຕິເສດແລ້ວ',
+    loan_borrowed: '(ຢືມເງິນ)',
+    // v3.3.0 — Trip Shared Expense
+    trips_open: '🧳 ທິບກຸ່ມ',
+    trips_title: '🧳 ທິບກຸ່ມ',
+    trips_active: 'ກຳລັງດຳເນີນ',
+    trips_closed: 'ປິດແລ້ວ',
+    trips_invitations: 'ຄຳເຊີນ',
+    trips_empty: 'ຍັງບໍ່ມີທິບ',
+    trips_no_invitations: 'ບໍ່ມີຄຳເຊີນ',
+    trip_new: '+ ສ້າງທິບໃໝ່',
+    trip_create_title: 'ສ້າງທິບໃໝ່',
+    trip_name_placeholder: 'ຊື່ທິບ (ເຊັ່ນ: ທິບເຊີຍງໃໝ່ 2026)',
+    trip_note_placeholder: 'ໝາຍເຫດ (ທາງເລືອກ)',
+    trip_create_btn: 'ສ້າງ',
+    trip_close: 'ປິດທິບ',
+    trip_close_confirm: 'ປິດທິບນີ້?',
+    trip_leave: 'ອອກຈາກທິບ',
+    trip_leave_confirm: 'ອອກຈາກທິບນີ້?',
+    trip_delete: 'ລົບທິບ',
+    trip_delete_confirm: 'ລົບທິບແບບຖາວອນ?',
+    trip_invite_friend: '+ ເຊີນໝູ່',
+    trip_invite_title: 'ເຊີນໝູ່ເຂົ້າທິບ',
+    trip_member_owner: 'ເຈົ້າຂອງ',
+    trip_member_pending: 'ລໍຕອບ',
+    trip_member_accepted: 'ເຂົ້າຮ່ວມ',
+    trip_member_declined: 'ປະຕິເສດ',
+    trip_member_removed: 'ອອກແລ້ວ',
+    trip_members_tab: '👥 ສະມາຊິກ',
+    trip_expenses_tab: '💸 ຄ່າໃຊ້ຈ່າຍ',
+    trip_settle_tab: '⚖️ ດຸນ',
+    trip_total_spent: 'ໃຊ້ຈ່າຍລວມ',
+    trip_my_share: 'ສ່ວນຂອງຂ້ອຍ',
+    trip_my_paid: 'ຂ້ອຍຈ່າຍ',
+    trip_my_balance: 'ດຸນຂ້ອຍ',
+    trip_add_expense: '+ ບັນທຶກຄ່າໃຊ້ຈ່າຍ',
+    trip_expense_title: 'ບັນທຶກຄ່າໃຊ້ຈ່າຍ',
+    trip_paid_by: 'ໃຜຈ່າຍ',
+    trip_amount: 'ຈຳນວນ',
+    trip_split_among: 'ຫານໃຫ້ໃຜ',
+    trip_split_equal: 'ຫານເທົ່າກັນ',
+    trip_no_expenses: 'ຍັງບໍ່ມີຄ່າໃຊ້ຈ່າຍ',
+    trip_invite_accept: '✓ ເຂົ້າຮ່ວມ',
+    trip_invite_decline: '✗ ປະຕິເສດ',
+    trip_balance_positive: 'ໄດ້ຮັບ',
+    trip_balance_negative: 'ຄ້າງ',
+    trip_balance_zero: 'ສົມດຸນ',
+    trip_settle_section: 'ການຊຳລະທີ່ແນະນຳ',
+    trip_settle_btn: 'ບັນທຶກວ່າຊຳລະແລ້ວ',
+    trip_settle_owes: 'ຄ້າງ',
+    trip_settle_to: 'ໃຫ້',
+    trip_settled_records: 'ບັນທຶກການຊຳລະ',
+    trip_no_settlements: 'ຍັງບໍ່ມີການຊຳລະ',
+    trip_settle_confirm: 'ບັນທຶກວ່າຊຳລະ ₭ {amt} ໃຫ້ {name}?',
+    trip_settle_recorded: '✓ ບັນທຶກການຊຳລະແລ້ວ',
     auth_password: 'ລະຫັດຜ່ານ',
     auth_password_min: 'ຢ່າງໜ້ອຍ 6 ຕົວອັກສອນ',
     auth_login_btn: 'ເຂົ້າສູ່ລະບົບ',
@@ -1327,6 +1407,78 @@ const I18N = {
     notif_clear_all: 'ล้างที่อ่านแล้ว',
     notif_for_iou: 'สำหรับ IOU:',
     notif_settled_toast: '🎉 IOU ชำระครบ — บันทึกในทั้ง 2 บัญชี',
+    // v3.2.0 — Friend Loan
+    loan_pick_friend: '📒 เลือกจากเพื่อน',
+    loan_linked: '🔗 ผูกกับบัญชี',
+    loan_unlink: 'ยกเลิก',
+    loan_send_request: 'ส่งคำขอกู้ยืม',
+    loan_send_hint: 'เพื่อนจะได้รับคำขอยืนยันก่อนเงินกู้มีผล',
+    loan_status_pending: '⏳ รอยืนยัน',
+    loan_status_accepted: '✓ ยอมรับแล้ว',
+    loan_status_declined: '✗ ถูกปฏิเสธ',
+    loan_status_settled: '✓ ชำระแล้ว',
+    loan_inbox_accept: '✓ ยอมรับเงินกู้',
+    loan_inbox_decline: '✗ ปฏิเสธ',
+    loan_inbox_principal: 'เงินต้น',
+    loan_inbox_rate: 'ดอกเบี้ย',
+    loan_inbox_period: 'ระยะ',
+    loan_request_section: '💰 คำขอกู้ยืมเงิน',
+    loan_request_accepted: '✓ ยอมรับเงินกู้แล้ว — บันทึกในบัญชี',
+    loan_request_declined: 'ปฏิเสธแล้ว',
+    loan_borrowed: '(ยืมเงิน)',
+    // v3.3.0 — Trip Shared Expense
+    trips_open: '🧳 ทริปกลุ่ม',
+    trips_title: '🧳 ทริปกลุ่ม',
+    trips_active: 'กำลังดำเนินอยู่',
+    trips_closed: 'ปิดแล้ว',
+    trips_invitations: 'คำเชิญ',
+    trips_empty: 'ยังไม่มีทริป',
+    trips_no_invitations: 'ไม่มีคำเชิญ',
+    trip_new: '+ สร้างทริปใหม่',
+    trip_create_title: 'สร้างทริปใหม่',
+    trip_name_placeholder: 'ชื่อทริป (เช่น: ทริปเชียงใหม่ 2026)',
+    trip_note_placeholder: 'หมายเหตุ (ทางเลือก)',
+    trip_create_btn: 'สร้าง',
+    trip_close: 'ปิดทริป',
+    trip_close_confirm: 'ปิดทริปนี้?',
+    trip_leave: 'ออกจากทริป',
+    trip_leave_confirm: 'ออกจากทริปนี้?',
+    trip_delete: 'ลบทริป',
+    trip_delete_confirm: 'ลบทริปแบบถาวร?',
+    trip_invite_friend: '+ เชิญเพื่อน',
+    trip_invite_title: 'เชิญเพื่อนเข้าทริป',
+    trip_member_owner: 'เจ้าของ',
+    trip_member_pending: 'รอตอบ',
+    trip_member_accepted: 'เข้าร่วม',
+    trip_member_declined: 'ปฏิเสธ',
+    trip_member_removed: 'ออกแล้ว',
+    trip_members_tab: '👥 สมาชิก',
+    trip_expenses_tab: '💸 ค่าใช้จ่าย',
+    trip_settle_tab: '⚖️ ดุล',
+    trip_total_spent: 'ใช้จ่ายรวม',
+    trip_my_share: 'ส่วนของฉัน',
+    trip_my_paid: 'ฉันจ่าย',
+    trip_my_balance: 'ดุลฉัน',
+    trip_add_expense: '+ บันทึกค่าใช้จ่าย',
+    trip_expense_title: 'บันทึกค่าใช้จ่าย',
+    trip_paid_by: 'ใครจ่าย',
+    trip_amount: 'จำนวน',
+    trip_split_among: 'หารให้ใคร',
+    trip_split_equal: 'หารเท่ากัน',
+    trip_no_expenses: 'ยังไม่มีค่าใช้จ่าย',
+    trip_invite_accept: '✓ เข้าร่วม',
+    trip_invite_decline: '✗ ปฏิเสธ',
+    trip_balance_positive: 'จะได้รับ',
+    trip_balance_negative: 'ค้าง',
+    trip_balance_zero: 'สมดุล',
+    trip_settle_section: 'การชำระที่แนะนำ',
+    trip_settle_btn: 'บันทึกว่าชำระแล้ว',
+    trip_settle_owes: 'ค้าง',
+    trip_settle_to: 'ให้',
+    trip_settled_records: 'บันทึกการชำระ',
+    trip_no_settlements: 'ยังไม่มีการชำระ',
+    trip_settle_confirm: 'บันทึกว่าชำระ ₭ {amt} ให้ {name}?',
+    trip_settle_recorded: '✓ บันทึกการชำระแล้ว',
     auth_password: 'รหัสผ่าน',
     auth_password_min: 'อย่างน้อย 6 ตัวอักษร',
     auth_login_btn: 'เข้าสู่ระบบ',
@@ -1693,6 +1845,78 @@ const I18N = {
     notif_clear_all: 'Clear read',
     notif_for_iou: 'For IOU:',
     notif_settled_toast: '🎉 IOU settled — recorded in both books',
+    // v3.2.0 — Friend Loan
+    loan_pick_friend: '📒 Pick from friends',
+    loan_linked: '🔗 Linked',
+    loan_unlink: 'Unlink',
+    loan_send_request: 'Send loan request',
+    loan_send_hint: 'Friend will receive a request before the loan is active',
+    loan_status_pending: '⏳ Pending',
+    loan_status_accepted: '✓ Accepted',
+    loan_status_declined: '✗ Declined',
+    loan_status_settled: '✓ Settled',
+    loan_inbox_accept: '✓ Accept Loan',
+    loan_inbox_decline: '✗ Decline',
+    loan_inbox_principal: 'Principal',
+    loan_inbox_rate: 'Interest',
+    loan_inbox_period: 'Period',
+    loan_request_section: '💰 Loan Requests',
+    loan_request_accepted: '✓ Loan accepted — recorded in your books',
+    loan_request_declined: 'Declined',
+    loan_borrowed: '(borrowed)',
+    // v3.3.0 — Trip Shared Expense
+    trips_open: '🧳 Group Trips',
+    trips_title: '🧳 Group Trips',
+    trips_active: 'Active',
+    trips_closed: 'Closed',
+    trips_invitations: 'Invitations',
+    trips_empty: 'No trips yet',
+    trips_no_invitations: 'No invitations',
+    trip_new: '+ New Trip',
+    trip_create_title: 'Create New Trip',
+    trip_name_placeholder: 'Trip name (e.g. Chiang Mai 2026)',
+    trip_note_placeholder: 'Note (optional)',
+    trip_create_btn: 'Create',
+    trip_close: 'Close Trip',
+    trip_close_confirm: 'Close this trip?',
+    trip_leave: 'Leave Trip',
+    trip_leave_confirm: 'Leave this trip?',
+    trip_delete: 'Delete Trip',
+    trip_delete_confirm: 'Delete trip permanently?',
+    trip_invite_friend: '+ Invite Friend',
+    trip_invite_title: 'Invite Friend to Trip',
+    trip_member_owner: 'Owner',
+    trip_member_pending: 'Pending',
+    trip_member_accepted: 'Joined',
+    trip_member_declined: 'Declined',
+    trip_member_removed: 'Left',
+    trip_members_tab: '👥 Members',
+    trip_expenses_tab: '💸 Expenses',
+    trip_settle_tab: '⚖️ Balance',
+    trip_total_spent: 'Total Spent',
+    trip_my_share: 'My Share',
+    trip_my_paid: 'I Paid',
+    trip_my_balance: 'My Balance',
+    trip_add_expense: '+ Add Expense',
+    trip_expense_title: 'Add Expense',
+    trip_paid_by: 'Paid By',
+    trip_amount: 'Amount',
+    trip_split_among: 'Split Among',
+    trip_split_equal: 'Split Equally',
+    trip_no_expenses: 'No expenses yet',
+    trip_invite_accept: '✓ Join',
+    trip_invite_decline: '✗ Decline',
+    trip_balance_positive: 'Gets back',
+    trip_balance_negative: 'Owes',
+    trip_balance_zero: 'Settled',
+    trip_settle_section: 'Suggested Settlements',
+    trip_settle_btn: 'Mark as Paid',
+    trip_settle_owes: 'owes',
+    trip_settle_to: 'to',
+    trip_settled_records: 'Settlement Records',
+    trip_no_settlements: 'No settlements yet',
+    trip_settle_confirm: 'Mark ₭ {amt} paid to {name}?',
+    trip_settle_recorded: '✓ Settlement recorded',
     auth_password: 'Password',
     auth_password_min: 'At least 6 characters',
     auth_login_btn: 'Log In',
@@ -2344,7 +2568,13 @@ const loanFromRow = r => ({
   status: r.status,
   paidDate: r.paid_date,
   note: r.note || '',
-  createdAt: r.created_at
+  createdAt: r.created_at,
+  // v3.2.0 — Shared Loan
+  counterpartyUserId: r.counterparty_user_id || null,
+  sharedStatus: r.shared_status || null,
+  sharedInitiator: r.shared_initiator || null,
+  sharedRespondedAt: r.shared_responded_at || null,
+  sharedGroupId: r.shared_group_id || null
 });
 const loanToRow = (loan, userId) => ({
   ...(typeof loan.id === 'string' && loan.id.length === 36 ? {
@@ -2363,7 +2593,13 @@ const loanToRow = (loan, userId) => ({
   payments: loan.payments || [],
   status: loan.status || 'active',
   paid_date: loan.paidDate || null,
-  note: loan.note || ''
+  note: loan.note || '',
+  // v3.2.0 — Shared Loan
+  counterparty_user_id: loan.counterpartyUserId || null,
+  shared_status: loan.sharedStatus || null,
+  shared_initiator: loan.sharedInitiator || null,
+  shared_responded_at: loan.sharedRespondedAt || null,
+  shared_group_id: loan.sharedGroupId || null
 });
 
 // — SETTINGS —
@@ -4784,6 +5020,21 @@ function Paruay() {
   const [reminderModal, setReminderModal] = useState(null); // { iou } when sending a reminder
   const [reminderText, setReminderText] = useState('');
   const [recentReminders, setRecentReminders] = useState({}); // { iouId: timestamp } client-side throttle
+  // v3.2.0 — Friend Loan
+  const [loanInbox, setLoanInbox] = useState([]); // pending shared loans where I'm the counterparty
+  const [showLoanFriendPicker, setShowLoanFriendPicker] = useState(false); // simple boolean — picker for loan form
+  const [loanFriendLink, setLoanFriendLink] = useState(null); // { userId, username, fullName } when linked
+  const [sendLoanRequest, setSendLoanRequest] = useState(true);
+  // v3.3.0 — Trip Shared Expense
+  const [trips, setTrips] = useState([]);
+  const [tripInvitations, setTripInvitations] = useState([]); // pending trip invitations
+  const [showTrips, setShowTrips] = useState(false);
+  const [openTrip, setOpenTrip] = useState(null); // active trip detail view: { trip, members, expenses, settlements }
+  const [showCreateTrip, setShowCreateTrip] = useState(false);
+  const [showTripInvite, setShowTripInvite] = useState(false);
+  const [showTripExpense, setShowTripExpense] = useState(false);
+  const [tripDetailTab, setTripDetailTab] = useState('expenses'); // expenses | members | settle
+  const [tripLoading, setTripLoading] = useState(false);
   const [toast, setToast] = useState('');
 
   // Add-transaction form
@@ -5377,6 +5628,384 @@ function Paruay() {
     }
   };
 
+  // ── v3.2.0 — Shared Loan helpers ──
+  // Load pending loan requests where I'm the counterparty
+  const loadLoanInbox = async userId => {
+    if (!supabase || !userId) return;
+    try {
+      const {
+        data: rows,
+        error
+      } = await supabase.from('loans').select('*').eq('counterparty_user_id', userId).eq('shared_status', 'pending');
+      if (error) throw error;
+      // Hydrate initiator profiles
+      const initiatorIds = [...new Set((rows || []).map(r => r.shared_initiator).filter(Boolean))];
+      let profMap = new Map();
+      if (initiatorIds.length > 0) {
+        const {
+          data: profs
+        } = await supabase.from('profiles').select('id, username, full_name').in('id', initiatorIds);
+        (profs || []).forEach(p => profMap.set(p.id, p));
+      }
+      setLoanInbox((rows || []).map(r => ({
+        ...loanFromRow(r),
+        dbId: r.id,
+        initiatorProfile: profMap.get(r.shared_initiator) || {
+          id: r.shared_initiator,
+          username: '?',
+          full_name: ''
+        }
+      })));
+    } catch (e) {
+      console.error('loadLoanInbox', e);
+    }
+  };
+
+  // Accept loan request via RPC (server-side creates mirror row in my book)
+  const acceptLoanRequest = async item => {
+    if (!supabase || !currentUser) return;
+    try {
+      const {
+        error
+      } = await supabase.rpc('accept_loan_request', {
+        p_loan_id: item.dbId
+      });
+      if (error) throw error;
+      // Refresh inbox + reload all loans
+      loadLoanInbox(currentUser.id);
+      try {
+        const {
+          data: loanRows
+        } = await supabase.from('loans').select('*').order('created_at', {
+          ascending: false
+        });
+        if (loanRows) setLoans(loanRows.map(loanFromRow));
+      } catch (_) {}
+      showToast(t.loan_request_accepted || 'Loan accepted');
+    } catch (e) {
+      console.error('acceptLoanRequest', e);
+      showToast('Error: ' + (e.message || e));
+    }
+  };
+  const declineLoanRequest = async item => {
+    if (!supabase || !currentUser) return;
+    try {
+      const {
+        error
+      } = await supabase.rpc('decline_loan_request', {
+        p_loan_id: item.dbId
+      });
+      if (error) throw error;
+      loadLoanInbox(currentUser.id);
+      showToast(t.loan_request_declined || 'Declined');
+    } catch (e) {
+      console.error('declineLoanRequest', e);
+      showToast('Error: ' + (e.message || e));
+    }
+  };
+
+  // ── v3.3.0 — Trip Shared Expense helpers ──
+
+  // Load all trips I'm a member of + invitations
+  const loadTrips = async userId => {
+    if (!supabase || !userId) return;
+    try {
+      // Trips where I'm an accepted member (or owner)
+      const {
+        data: memberRows,
+        error: mErr
+      } = await supabase.from('trip_members').select('trip_id, status, role').eq('user_id', userId);
+      if (mErr) throw mErr;
+      const acceptedTripIds = (memberRows || []).filter(m => m.status === 'accepted').map(m => m.trip_id);
+      const pendingInvitations = (memberRows || []).filter(m => m.status === 'pending');
+      let activeTrips = [];
+      if (acceptedTripIds.length > 0) {
+        const {
+          data: trips,
+          error: tErr
+        } = await supabase.from('trips').select('*').in('id', acceptedTripIds).order('created_at', {
+          ascending: false
+        });
+        if (tErr) throw tErr;
+        activeTrips = trips || [];
+      }
+      setTrips(activeTrips);
+
+      // Hydrate invitation rows with trip + inviter info
+      if (pendingInvitations.length > 0) {
+        const ids = pendingInvitations.map(i => i.trip_id);
+        const {
+          data: invTrips
+        } = await supabase.from('trips').select('*').in('id', ids);
+        const tripMap = new Map((invTrips || []).map(t => [t.id, t]));
+        const inviterIds = [...new Set((invTrips || []).map(t => t.owner_id))];
+        let profMap = new Map();
+        if (inviterIds.length > 0) {
+          const {
+            data: profs
+          } = await supabase.from('profiles').select('id, username, full_name').in('id', inviterIds);
+          (profs || []).forEach(p => profMap.set(p.id, p));
+        }
+        setTripInvitations(pendingInvitations.map(inv => ({
+          tripId: inv.trip_id,
+          trip: tripMap.get(inv.trip_id),
+          inviter: profMap.get(tripMap.get(inv.trip_id)?.owner_id) || null
+        })).filter(x => x.trip));
+      } else {
+        setTripInvitations([]);
+      }
+    } catch (e) {
+      console.error('loadTrips', e);
+    }
+  };
+  const createTrip = async (name, emoji, note) => {
+    if (!supabase || !currentUser) return {
+      error: 'Not logged in'
+    };
+    try {
+      const {
+        data,
+        error
+      } = await supabase.rpc('create_trip', {
+        p_name: name,
+        p_emoji: emoji || '🧳',
+        p_note: note || null
+      });
+      if (error) return {
+        error: error.message
+      };
+      await loadTrips(currentUser.id);
+      return {
+        ok: true,
+        tripId: data
+      };
+    } catch (e) {
+      return {
+        error: e.message || String(e)
+      };
+    }
+  };
+  const inviteToTrip = async (tripId, userId) => {
+    if (!supabase || !currentUser) return {
+      error: 'Not logged in'
+    };
+    try {
+      const {
+        error
+      } = await supabase.rpc('invite_to_trip', {
+        p_trip_id: tripId,
+        p_user_id: userId
+      });
+      if (error) return {
+        error: error.message
+      };
+      return {
+        ok: true
+      };
+    } catch (e) {
+      return {
+        error: e.message || String(e)
+      };
+    }
+  };
+  const acceptTripInvitation = async tripId => {
+    if (!supabase || !currentUser) return;
+    try {
+      const {
+        error
+      } = await supabase.rpc('accept_trip_invitation', {
+        p_trip_id: tripId
+      });
+      if (error) throw error;
+      await loadTrips(currentUser.id);
+      showToast('✓');
+    } catch (e) {
+      console.error(e);
+      showToast('Error: ' + e.message);
+    }
+  };
+  const declineTripInvitation = async tripId => {
+    if (!supabase || !currentUser) return;
+    try {
+      const {
+        error
+      } = await supabase.rpc('decline_trip_invitation', {
+        p_trip_id: tripId
+      });
+      if (error) throw error;
+      await loadTrips(currentUser.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  const closeTrip = async tripId => {
+    if (!supabase || !currentUser) return;
+    if (!window.confirm(t.trip_close_confirm)) return;
+    try {
+      await supabase.rpc('close_trip', {
+        p_trip_id: tripId
+      });
+      await loadTrips(currentUser.id);
+      setOpenTrip(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  const leaveTrip = async tripId => {
+    if (!supabase || !currentUser) return;
+    if (!window.confirm(t.trip_leave_confirm)) return;
+    try {
+      await supabase.rpc('leave_trip', {
+        p_trip_id: tripId
+      });
+      await loadTrips(currentUser.id);
+      setOpenTrip(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Load full detail of a single trip (members, expenses, settlements)
+  const loadTripDetail = async trip => {
+    if (!supabase || !currentUser) return;
+    setTripLoading(true);
+    try {
+      const [memRes, expRes, setRes] = await Promise.all([supabase.from('trip_members').select('*').eq('trip_id', trip.id), supabase.from('trip_expenses').select('*').eq('trip_id', trip.id).order('date', {
+        ascending: false
+      }), supabase.from('trip_settlements').select('*').eq('trip_id', trip.id).order('created_at', {
+        ascending: false
+      })]);
+      const members = memRes.data || [];
+      // Hydrate user profiles for all members + expense creators + settlement parties
+      const userIds = new Set();
+      members.forEach(m => userIds.add(m.user_id));
+      (expRes.data || []).forEach(e => userIds.add(e.paid_by));
+      (setRes.data || []).forEach(s => {
+        userIds.add(s.from_user);
+        userIds.add(s.to_user);
+      });
+      let profMap = new Map();
+      if (userIds.size > 0) {
+        const {
+          data: profs
+        } = await supabase.from('profiles').select('id, username, full_name').in('id', [...userIds]);
+        (profs || []).forEach(p => profMap.set(p.id, p));
+      }
+      setOpenTrip({
+        trip,
+        members: members.map(m => ({
+          ...m,
+          profile: profMap.get(m.user_id) || {
+            username: '?'
+          }
+        })),
+        expenses: expRes.data || [],
+        settlements: setRes.data || [],
+        profMap
+      });
+    } catch (e) {
+      console.error('loadTripDetail', e);
+    } finally {
+      setTripLoading(false);
+    }
+  };
+  const addTripExpense = async (tripId, paidBy, amount, note, emoji, date, splitMemberIds) => {
+    if (!supabase || !currentUser) return {
+      error: 'Not logged in'
+    };
+    try {
+      const {
+        error
+      } = await supabase.from('trip_expenses').insert({
+        trip_id: tripId,
+        paid_by: paidBy,
+        amount: Math.round(amount),
+        note: note || null,
+        emoji: emoji || '💸',
+        date: date,
+        split: splitMemberIds && splitMemberIds.length > 0 ? {
+          members: splitMemberIds
+        } : null,
+        created_by: currentUser.id
+      });
+      if (error) return {
+        error: error.message
+      };
+      return {
+        ok: true
+      };
+    } catch (e) {
+      return {
+        error: e.message || String(e)
+      };
+    }
+  };
+  const recordTripSettlement = async (tripId, fromUser, toUser, amount, note) => {
+    if (!supabase || !currentUser) return {
+      error: 'Not logged in'
+    };
+    try {
+      const {
+        error
+      } = await supabase.from('trip_settlements').insert({
+        trip_id: tripId,
+        from_user: fromUser,
+        to_user: toUser,
+        amount: Math.round(amount),
+        note: note || null
+      });
+      if (error) return {
+        error: error.message
+      };
+      return {
+        ok: true
+      };
+    } catch (e) {
+      return {
+        error: e.message || String(e)
+      };
+    }
+  };
+
+  // ── Settlement Algorithm — minimum transactions to balance ──
+  // Input: { userId: netBalance } where + = creditor, - = debtor
+  // Returns array of { from, to, amount } transfers
+  const computeMinSettlements = balances => {
+    // Build sorted lists of creditors (+) and debtors (-)
+    const creditors = [];
+    const debtors = [];
+    Object.entries(balances).forEach(([uid, bal]) => {
+      if (bal > 0.5) creditors.push({
+        uid,
+        bal
+      });
+      if (bal < -0.5) debtors.push({
+        uid,
+        bal: -bal
+      });
+    });
+    creditors.sort((a, b) => b.bal - a.bal);
+    debtors.sort((a, b) => b.bal - a.bal);
+    const out = [];
+    let i = 0,
+      j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const d = debtors[i];
+      const c = creditors[j];
+      const amt = Math.min(d.bal, c.bal);
+      out.push({
+        from: d.uid,
+        to: c.uid,
+        amount: Math.round(amt)
+      });
+      d.bal -= amt;
+      c.bal -= amt;
+      if (d.bal < 0.5) i++;
+      if (c.bal < 0.5) j++;
+    }
+    return out;
+  };
+
   // ── LOAD ALL DATA FROM CLOUD AFTER LOGIN ──
   const loadCloudData = async userId => {
     if (!supabase || !userId) return;
@@ -5475,6 +6104,10 @@ function Paruay() {
       loadIOUInbox(userId);
       // v3.1.0 — load friend notifications
       loadNotifications(userId);
+      // v3.2.0 — load pending shared LOAN requests
+      loadLoanInbox(userId);
+      // v3.3.0 — load trips + invitations
+      loadTrips(userId);
     } catch (e) {
       console.error('cloud load', e);
       setCloudError(e.message || String(e));
@@ -8434,6 +9067,9 @@ function Paruay() {
       setLoanType('simple');
       setLoanStartDate(todayStr());
       setLoanNote('');
+      // v3.2.0 — reset friend link
+      setLoanFriendLink(null);
+      setSendLoanRequest(true);
       setShowLendModal(true);
     },
     style: {
@@ -11104,12 +11740,13 @@ function Paruay() {
     }
   }, friendIncoming.length)), currentUser && (() => {
     const unreadNotif = notifications.filter(n => !n.is_read).length;
-    const totalBadge = iouInbox.length + unreadNotif;
+    const totalBadge = iouInbox.length + loanInbox.length + unreadNotif;
     return /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         // Refresh on open
         loadIOUInbox(currentUser.id);
         loadNotifications(currentUser.id);
+        loadLoanInbox(currentUser.id);
         setShowIOUInbox(true);
       },
       className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
@@ -11139,7 +11776,38 @@ function Paruay() {
         fontWeight: 900
       }
     }, totalBadge));
-  })(), currentUser && unreadMessages.length > 0 && /*#__PURE__*/React.createElement("button", {
+  })(), currentUser && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      loadTrips(currentUser.id);
+      setShowTrips(true);
+    },
+    className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
+    style: {
+      width: '100%',
+      padding: 12,
+      marginBottom: 10,
+      borderRadius: 12,
+      background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+      color: '#F5EFE0',
+      fontSize: 13,
+      fontWeight: 700,
+      border: 'none',
+      boxShadow: '0 2px 4px rgba(93,58,142,0.25)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", null, I18N[sLang].trips_open), tripInvitations.length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: '#AA3C28',
+      color: '#F5EFE0',
+      padding: '2px 8px',
+      borderRadius: 999,
+      fontSize: 11,
+      fontWeight: 900
+    }
+  }, tripInvitations.length)), currentUser && unreadMessages.length > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowInbox(true),
     className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
     style: {
@@ -11998,7 +12666,1394 @@ function Paruay() {
         fontSize: 18
       }
     }, "\uD83D\uDCCB"), " ", t.share))));
-  })(), showFriendPicker && /*#__PURE__*/React.createElement("div", {
+  })(), showTrips && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setShowTrips(false),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(42,31,26,0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      zIndex: 90,
+      padding: 16,
+      animation: 'fadeUp 0.2s ease-out'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    className: langClass,
+    style: {
+      width: '100%',
+      maxWidth: 460,
+      background: '#FBF6E9',
+      borderRadius: 18,
+      padding: 18,
+      boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+      maxHeight: '85vh',
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 14,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 18,
+      fontWeight: 800,
+      color: '#3D2466'
+    }
+  }, t.trips_title), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowTrips(false),
+    style: {
+      background: 'none',
+      padding: 4,
+      fontSize: 20
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowCreateTrip(true),
+    className: langClass,
+    style: {
+      padding: '12px 14px',
+      marginBottom: 12,
+      borderRadius: 12,
+      background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+      color: '#F5EFE0',
+      fontSize: 14,
+      fontWeight: 700,
+      border: 'none',
+      boxShadow: '0 2px 4px rgba(93,58,142,0.3)',
+      flexShrink: 0
+    }
+  }, t.trip_new), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowY: 'auto',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10
+    }
+  }, tripInvitations.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#7F5539',
+      letterSpacing: '0.05em',
+      textTransform: 'uppercase'
+    }
+  }, t.trips_invitations), tripInvitations.map(inv => /*#__PURE__*/React.createElement("div", {
+    key: inv.tripId,
+    className: langClass,
+    style: {
+      padding: 14,
+      borderRadius: 14,
+      background: '#FFF8E7',
+      border: '1.5px solid rgba(212,165,116,0.4)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 24
+    }
+  }, inv.trip.emoji || '🧳'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 800,
+      color: '#3D2466',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
+    }
+  }, inv.trip.name), inv.inviter && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#7F5539'
+    }
+  }, t.iou_inbox_from, " ", inv.inviter.full_name || inv.inviter.username))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => acceptTripInvitation(inv.tripId),
+    className: langClass,
+    style: {
+      padding: 10,
+      borderRadius: 10,
+      background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+      color: '#F5EFE0',
+      fontSize: 12,
+      fontWeight: 700,
+      border: 'none'
+    }
+  }, t.trip_invite_accept), /*#__PURE__*/React.createElement("button", {
+    onClick: () => declineTripInvitation(inv.tripId),
+    className: langClass,
+    style: {
+      padding: 10,
+      borderRadius: 10,
+      background: 'transparent',
+      color: '#AA3C28',
+      fontSize: 12,
+      fontWeight: 700,
+      border: '1.5px solid rgba(170,60,40,0.4)'
+    }
+  }, t.trip_invite_decline))))), trips.length === 0 && tripInvitations.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      padding: '32px 12px',
+      textAlign: 'center',
+      fontSize: 13,
+      color: '#7F5539',
+      fontStyle: 'italic',
+      background: '#FFF8E7',
+      borderRadius: 10
+    }
+  }, t.trips_empty) : trips.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#7F5539',
+      letterSpacing: '0.05em',
+      textTransform: 'uppercase',
+      marginTop: tripInvitations.length > 0 ? 8 : 0
+    }
+  }, t.trips_active), trips.filter(t => t.status === 'active').map(trip => /*#__PURE__*/React.createElement("button", {
+    key: trip.id,
+    onClick: () => {
+      loadTripDetail(trip);
+      setTripDetailTab('expenses');
+    },
+    className: langClass,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      padding: '14px 16px',
+      borderRadius: 14,
+      background: 'linear-gradient(135deg, #F0EAF8 0%, #D9CEEC 100%)',
+      border: '1px solid rgba(93,58,142,0.2)',
+      textAlign: 'left',
+      cursor: 'pointer',
+      boxShadow: '0 2px 4px rgba(93,58,142,0.08)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 26
+    }
+  }, trip.emoji || '🧳'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 800,
+      color: '#3D2466',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
+    }
+  }, trip.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#5D3A8E',
+      marginTop: 2
+    }
+  }, trip.created_at && trip.created_at.slice(0, 10), trip.owner_id === currentUser.id ? ' · ' + t.trip_member_owner : '')), /*#__PURE__*/React.createElement(ChevronR, {
+    size: 18,
+    color: "#5D3A8E"
+  }))), trips.filter(tr => tr.status === 'closed').length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#7F5539',
+      letterSpacing: '0.05em',
+      textTransform: 'uppercase',
+      marginTop: 8,
+      opacity: 0.7
+    }
+  }, t.trips_closed), trips.filter(tr => tr.status === 'closed').map(trip => /*#__PURE__*/React.createElement("button", {
+    key: trip.id,
+    onClick: () => loadTripDetail(trip),
+    className: langClass,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '10px 14px',
+      borderRadius: 12,
+      background: '#F5EFE0',
+      border: '1px solid rgba(127,85,57,0.15)',
+      textAlign: 'left',
+      opacity: 0.6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 20
+    }
+  }, trip.emoji || '🧳'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 12,
+      color: '#7F5539'
+    }
+  }, trip.name), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#A89580'
+    }
+  }, "\u2713")))))))), showCreateTrip && (() => {
+    let nameInput = '';
+    let emojiInput = '🧳';
+    let noteInput = '';
+    return /*#__PURE__*/React.createElement("div", {
+      onClick: () => setShowCreateTrip(false),
+      style: {
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(42,31,26,0.6)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+        padding: 16
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: e => e.stopPropagation(),
+      className: langClass,
+      style: {
+        width: '100%',
+        maxWidth: 380,
+        background: '#FBF6E9',
+        borderRadius: 18,
+        padding: 18
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 17,
+        fontWeight: 800,
+        color: '#3D2466'
+      }
+    }, t.trip_create_title), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowCreateTrip(false),
+      style: {
+        background: 'none',
+        padding: 4,
+        fontSize: 20
+      }
+    }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6,
+        marginBottom: 10,
+        flexWrap: 'wrap'
+      }
+    }, ['🧳', '🏖️', '🏔️', '🍽️', '🏠', '🚗', '🎉', '✈️', '🛒'].map(em => /*#__PURE__*/React.createElement("button", {
+      key: em,
+      onClick: e => {
+        emojiInput = em;
+        e.currentTarget.parentElement.parentElement.querySelector('[data-tripemoji]').textContent = em;
+      },
+      style: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        border: '1px solid rgba(93,58,142,0.2)',
+        background: '#F5EFE0',
+        fontSize: 20
+      }
+    }, em))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        marginBottom: 10,
+        alignItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      "data-tripemoji": true,
+      style: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        fontSize: 26,
+        background: 'linear-gradient(135deg, #F0EAF8, #D9CEEC)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: '1px solid rgba(93,58,142,0.2)'
+      }
+    }, emojiInput), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      defaultValue: "",
+      onChange: e => {
+        nameInput = e.target.value;
+      },
+      placeholder: t.trip_name_placeholder,
+      className: langClass,
+      style: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 10,
+        border: '1px solid rgba(127,85,57,0.2)',
+        background: '#F5EFE0',
+        fontSize: 14,
+        outline: 'none'
+      }
+    })), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      defaultValue: "",
+      onChange: e => {
+        noteInput = e.target.value;
+      },
+      placeholder: t.trip_note_placeholder,
+      className: langClass,
+      style: {
+        width: '100%',
+        padding: 10,
+        marginBottom: 14,
+        borderRadius: 10,
+        border: '1px solid rgba(127,85,57,0.2)',
+        background: '#F5EFE0',
+        fontSize: 13,
+        outline: 'none'
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: async () => {
+        if (!nameInput.trim()) {
+          showToast('?');
+          return;
+        }
+        const r = await createTrip(nameInput.trim(), emojiInput, noteInput.trim() || null);
+        if (r.error) {
+          showToast('Error: ' + r.error);
+          return;
+        }
+        setShowCreateTrip(false);
+        showToast('✓');
+      },
+      className: langClass,
+      style: {
+        width: '100%',
+        padding: 14,
+        borderRadius: 12,
+        background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+        color: '#F5EFE0',
+        fontSize: 14,
+        fontWeight: 700,
+        border: 'none'
+      }
+    }, t.trip_create_btn)));
+  })(), openTrip && (() => {
+    const acceptedMembers = openTrip.members.filter(m => m.status === 'accepted');
+    const memberIds = new Set(acceptedMembers.map(m => m.user_id));
+    // Compute balances: for each member, sum(paid) − sum(share)
+    const balances = {};
+    acceptedMembers.forEach(m => {
+      balances[m.user_id] = 0;
+    });
+    openTrip.expenses.forEach(exp => {
+      // Determine who shares this expense
+      const splitMembers = exp.split && exp.split.members && exp.split.members.length > 0 ? exp.split.members.filter(uid => memberIds.has(uid)) : [...memberIds];
+      if (splitMembers.length === 0) return;
+      const sharePerHead = exp.amount / splitMembers.length;
+      balances[exp.paid_by] = (balances[exp.paid_by] || 0) + exp.amount;
+      splitMembers.forEach(uid => {
+        balances[uid] = (balances[uid] || 0) - sharePerHead;
+      });
+    });
+    // Apply settlements (payments shift balance toward zero)
+    openTrip.settlements.forEach(s => {
+      balances[s.from_user] = (balances[s.from_user] || 0) + s.amount;
+      balances[s.to_user] = (balances[s.to_user] || 0) - s.amount;
+    });
+    const myBal = balances[currentUser.id] || 0;
+    const totalSpent = openTrip.expenses.reduce((s, e) => s + e.amount, 0);
+    const myPaid = openTrip.expenses.filter(e => e.paid_by === currentUser.id).reduce((s, e) => s + e.amount, 0);
+    const myShare = myPaid - myBal;
+    const settleSuggestions = computeMinSettlements(balances);
+    const isOwner = openTrip.trip.owner_id === currentUser.id;
+    const isClosed = openTrip.trip.status === 'closed';
+    const renderMember = m => {
+      const isMe = m.user_id === currentUser.id;
+      const bal = Math.round(balances[m.user_id] || 0);
+      return /*#__PURE__*/React.createElement("div", {
+        key: m.id,
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '10px 12px',
+          borderRadius: 12,
+          background: isMe ? 'linear-gradient(135deg, #F0EAF8, #E5DCF1)' : '#F5EFE0',
+          border: '1px solid ' + (isMe ? 'rgba(93,58,142,0.3)' : 'rgba(127,85,57,0.15)')
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
+          background: m.role === 'owner' ? 'linear-gradient(135deg,#D4A574,#7F5539)' : 'linear-gradient(135deg,#5D3A8E,#3D2466)',
+          color: '#F5EFE0',
+          fontSize: 12,
+          fontWeight: 800,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
+        }
+      }, (m.profile.full_name || m.profile.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 13,
+          fontWeight: 700,
+          color: '#3D2466'
+        }
+      }, m.profile.full_name || m.profile.username || '?', isMe && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 10,
+          color: '#7F5539',
+          fontWeight: 600
+        }
+      }, " \xB7 ", t.me), m.role === 'owner' && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          marginLeft: 4,
+          padding: '1px 5px',
+          background: '#D4A574',
+          color: '#F5EFE0',
+          borderRadius: 999,
+          fontWeight: 700
+        }
+      }, t.trip_member_owner)), m.status === 'accepted' && /*#__PURE__*/React.createElement("div", {
+        className: "display",
+        style: {
+          fontSize: 12,
+          marginTop: 2,
+          color: bal > 0 ? '#1B4332' : bal < 0 ? '#AA3C28' : '#7F5539',
+          fontWeight: 700
+        }
+      }, bal > 0 && '+ ₭ ' + fmt(bal) + ' (' + t.trip_balance_positive + ')', bal < 0 && '- ₭ ' + fmt(Math.abs(bal)) + ' (' + t.trip_balance_negative + ')', bal === 0 && '₭ 0 · ' + t.trip_balance_zero), m.status === 'pending' && /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 10,
+          color: '#856404'
+        }
+      }, "\u23F3 ", t.trip_member_pending), m.status === 'declined' && /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 10,
+          color: '#AA3C28'
+        }
+      }, "\u2717 ", t.trip_member_declined)));
+    };
+    return /*#__PURE__*/React.createElement("div", {
+      onClick: () => setOpenTrip(null),
+      style: {
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(42,31,26,0.6)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        zIndex: 92,
+        padding: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: e => e.stopPropagation(),
+      className: langClass,
+      style: {
+        width: '100%',
+        maxWidth: 460,
+        background: '#FBF6E9',
+        borderRadius: 18,
+        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        maxHeight: '92vh',
+        display: 'flex',
+        flexDirection: 'column'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '14px 16px',
+        flexShrink: 0,
+        background: 'linear-gradient(135deg, #F0EAF8, #D9CEEC)',
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 18,
+        borderBottom: '1px solid rgba(93,58,142,0.2)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 24
+      }
+    }, openTrip.trip.emoji || '🧳'), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 17,
+        fontWeight: 800,
+        color: '#3D2466',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, openTrip.trip.name)), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setOpenTrip(null),
+      style: {
+        background: 'none',
+        padding: 4,
+        fontSize: 20,
+        color: '#3D2466'
+      }
+    }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 10,
+        fontSize: 11,
+        color: '#5D3A8E'
+      }
+    }, /*#__PURE__*/React.createElement("span", null, t.trip_total_spent, ": ", /*#__PURE__*/React.createElement("strong", {
+      className: "display"
+    }, "\u20AD ", fmt(totalSpent))), /*#__PURE__*/React.createElement("span", null, "\xB7"), /*#__PURE__*/React.createElement("span", null, t.trip_my_balance, ": ", /*#__PURE__*/React.createElement("strong", {
+      className: "display",
+      style: {
+        color: myBal > 0 ? '#1B4332' : myBal < 0 ? '#AA3C28' : '#7F5539'
+      }
+    }, myBal >= 0 ? '+' : '-', " \u20AD ", fmt(Math.abs(Math.round(myBal))))))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 4,
+        padding: '8px 12px',
+        flexShrink: 0,
+        borderBottom: '1px solid rgba(93,58,142,0.1)'
+      }
+    }, ['expenses', 'members', 'settle'].map(tab => /*#__PURE__*/React.createElement("button", {
+      key: tab,
+      onClick: () => setTripDetailTab(tab),
+      className: langClass,
+      style: {
+        flex: 1,
+        padding: '8px 6px',
+        borderRadius: 8,
+        background: tripDetailTab === tab ? '#5D3A8E' : 'transparent',
+        color: tripDetailTab === tab ? '#F5EFE0' : '#5D3A8E',
+        border: tripDetailTab === tab ? 'none' : '1px solid rgba(93,58,142,0.2)',
+        fontSize: 11,
+        fontWeight: 700
+      }
+    }, tab === 'expenses' ? t.trip_expenses_tab : tab === 'members' ? t.trip_members_tab : t.trip_settle_tab))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        overflowY: 'auto',
+        flex: 1,
+        padding: 14,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8
+      }
+    }, tripDetailTab === 'expenses' && /*#__PURE__*/React.createElement(React.Fragment, null, !isClosed && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowTripExpense(true),
+      className: langClass,
+      style: {
+        padding: '12px 14px',
+        borderRadius: 12,
+        background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+        color: '#F5EFE0',
+        fontSize: 13,
+        fontWeight: 700,
+        border: 'none'
+      }
+    }, t.trip_add_expense), openTrip.expenses.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: langClass,
+      style: {
+        padding: '24px 12px',
+        textAlign: 'center',
+        fontSize: 12,
+        color: '#7F5539',
+        fontStyle: 'italic'
+      }
+    }, t.trip_no_expenses) : openTrip.expenses.map(exp => {
+      const payer = openTrip.profMap.get(exp.paid_by);
+      const splitMembers = exp.split && exp.split.members && exp.split.members.length > 0 ? exp.split.members.filter(uid => memberIds.has(uid)) : [...memberIds];
+      return /*#__PURE__*/React.createElement("div", {
+        key: exp.id,
+        style: {
+          padding: 12,
+          borderRadius: 12,
+          background: '#F5EFE0',
+          border: '1px solid rgba(127,85,57,0.15)'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 22
+        }
+      }, exp.emoji || '💸'), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: langClass,
+        style: {
+          fontSize: 13,
+          fontWeight: 700,
+          color: '#2A1F1A'
+        }
+      }, exp.note || '—'), /*#__PURE__*/React.createElement("div", {
+        className: langClass,
+        style: {
+          fontSize: 10,
+          color: '#7F5539',
+          marginTop: 2
+        }
+      }, t.trip_paid_by, ": ", payer ? payer.full_name || payer.username : '?', " \xB7 ", exp.date, " \xB7 ", t.trip_split_among, ": ", splitMembers.length)), /*#__PURE__*/React.createElement("div", {
+        className: "display",
+        style: {
+          fontSize: 15,
+          fontWeight: 800,
+          color: '#3D2466'
+        }
+      }, "\u20AD ", fmt(exp.amount))));
+    })), tripDetailTab === 'members' && /*#__PURE__*/React.createElement(React.Fragment, null, isOwner && !isClosed && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowTripInvite(true),
+      className: langClass,
+      style: {
+        padding: '12px 14px',
+        borderRadius: 12,
+        background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
+        color: '#F5EFE0',
+        fontSize: 13,
+        fontWeight: 700,
+        border: 'none'
+      }
+    }, t.trip_invite_friend), openTrip.members.filter(m => m.status !== 'declined' && m.status !== 'removed').map(renderMember)), tripDetailTab === 'settle' && /*#__PURE__*/React.createElement(React.Fragment, null, settleSuggestions.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: langClass,
+      style: {
+        padding: '24px 12px',
+        textAlign: 'center',
+        fontSize: 13,
+        color: '#1B4332',
+        fontWeight: 700,
+        background: '#E8F0E8',
+        borderRadius: 12
+      }
+    }, "\u2713 ", t.trip_balance_zero) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: langClass,
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        color: '#5D3A8E',
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase'
+      }
+    }, t.trip_settle_section), settleSuggestions.map((s, idx) => {
+      const from = openTrip.profMap.get(s.from);
+      const to = openTrip.profMap.get(s.to);
+      const isMyDebt = s.from === currentUser.id;
+      return /*#__PURE__*/React.createElement("div", {
+        key: idx,
+        style: {
+          padding: 12,
+          borderRadius: 12,
+          background: isMyDebt ? '#FFF3CD' : '#F5EFE0',
+          border: '1px solid ' + (isMyDebt ? '#FFE69C' : 'rgba(127,85,57,0.15)')
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 6
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: langClass,
+        style: {
+          fontSize: 12,
+          color: '#2A1F1A',
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("strong", null, from ? from.full_name || from.username : '?'), " ", t.trip_settle_owes, " ", /*#__PURE__*/React.createElement("strong", null, to ? to.full_name || to.username : '?')), /*#__PURE__*/React.createElement("span", {
+        className: "display",
+        style: {
+          fontSize: 14,
+          fontWeight: 800,
+          color: '#AA3C28'
+        }
+      }, "\u20AD ", fmt(s.amount))), isMyDebt && /*#__PURE__*/React.createElement("button", {
+        onClick: async () => {
+          const targetName = to ? to.full_name || to.username : '?';
+          const msg = (t.trip_settle_confirm || 'Pay ₭ {amt} to {name}?').replace('{amt}', fmt(s.amount)).replace('{name}', targetName);
+          if (!window.confirm(msg)) return;
+          const r = await recordTripSettlement(openTrip.trip.id, s.from, s.to, s.amount, null);
+          if (r.error) {
+            showToast('Error: ' + r.error);
+            return;
+          }
+          showToast(t.trip_settle_recorded || '✓');
+          loadTripDetail(openTrip.trip);
+        },
+        className: langClass,
+        style: {
+          width: '100%',
+          padding: 8,
+          borderRadius: 8,
+          background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
+          color: '#F5EFE0',
+          fontSize: 11,
+          fontWeight: 700,
+          border: 'none'
+        }
+      }, t.trip_settle_btn));
+    })), openTrip.settlements.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: langClass,
+      style: {
+        marginTop: 14,
+        fontSize: 11,
+        fontWeight: 700,
+        color: '#7F5539',
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase'
+      }
+    }, t.trip_settled_records), openTrip.settlements.map(s => {
+      const from = openTrip.profMap.get(s.from_user);
+      const to = openTrip.profMap.get(s.to_user);
+      return /*#__PURE__*/React.createElement("div", {
+        key: s.id,
+        className: langClass,
+        style: {
+          padding: '8px 12px',
+          borderRadius: 10,
+          background: '#E8F0E8',
+          fontSize: 11,
+          color: '#1B4332',
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 6
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }
+      }, "\u2713 ", from ? from.full_name || from.username : '?', " \u2192 ", to ? to.full_name || to.username : '?'), /*#__PURE__*/React.createElement("span", {
+        className: "display",
+        style: {
+          fontWeight: 700
+        }
+      }, "\u20AD ", fmt(s.amount)));
+    })))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        padding: '10px 12px',
+        borderTop: '1px solid rgba(127,85,57,0.15)',
+        flexShrink: 0
+      }
+    }, isOwner && !isClosed && /*#__PURE__*/React.createElement("button", {
+      onClick: () => closeTrip(openTrip.trip.id),
+      className: langClass,
+      style: {
+        flex: 1,
+        padding: 10,
+        borderRadius: 10,
+        background: 'transparent',
+        color: '#7F5539',
+        border: '1px solid rgba(127,85,57,0.3)',
+        fontSize: 12,
+        fontWeight: 700
+      }
+    }, t.trip_close), !isOwner && /*#__PURE__*/React.createElement("button", {
+      onClick: () => leaveTrip(openTrip.trip.id),
+      className: langClass,
+      style: {
+        flex: 1,
+        padding: 10,
+        borderRadius: 10,
+        background: 'transparent',
+        color: '#AA3C28',
+        border: '1px solid rgba(170,60,40,0.4)',
+        fontSize: 12,
+        fontWeight: 700
+      }
+    }, t.trip_leave))));
+  })(), showTripInvite && openTrip && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setShowTripInvite(false),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(42,31,26,0.6)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 110,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    className: langClass,
+    style: {
+      width: '100%',
+      maxWidth: 380,
+      background: '#FBF6E9',
+      borderRadius: 18,
+      padding: 18,
+      maxHeight: '80vh',
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 17,
+      fontWeight: 800,
+      color: '#3D2466'
+    }
+  }, t.trip_invite_title), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowTripInvite(false),
+    style: {
+      background: 'none',
+      padding: 4,
+      fontSize: 20
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowY: 'auto',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6
+    }
+  }, friends.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      padding: '20px 12px',
+      textAlign: 'center',
+      fontSize: 13,
+      color: '#7F5539',
+      fontStyle: 'italic',
+      background: '#FFF8E7',
+      borderRadius: 10
+    }
+  }, t.shared_iou_no_friends) : friends.map(f => {
+    const isMember = openTrip.members.some(m => m.user_id === f.id && m.status !== 'declined' && m.status !== 'removed');
+    return /*#__PURE__*/React.createElement("button", {
+      key: f.id,
+      disabled: isMember,
+      onClick: async () => {
+        const r = await inviteToTrip(openTrip.trip.id, f.id);
+        if (r.error) {
+          showToast('Error: ' + r.error);
+          return;
+        }
+        showToast('✓');
+        loadTripDetail(openTrip.trip);
+      },
+      className: langClass,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '10px 12px',
+        borderRadius: 10,
+        background: isMember ? '#E8F0E8' : '#F5EFE0',
+        border: '1px solid rgba(127,85,57,0.18)',
+        textAlign: 'left',
+        cursor: isMember ? 'default' : 'pointer',
+        opacity: isMember ? 0.6 : 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 36,
+        height: 36,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+        color: '#F5EFE0',
+        fontWeight: 800,
+        fontSize: 14,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }
+    }, (f.full_name || f.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        fontWeight: 700,
+        color: '#3D2466'
+      }
+    }, f.full_name || f.username), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: '#7F5539'
+      }
+    }, "@", f.username)), isMember && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 14
+      }
+    }, "\u2713"));
+  })))), showTripExpense && openTrip && (() => {
+    let payerId = currentUser.id;
+    let amountStr = '';
+    let noteStr = '';
+    let emojiStr = '💸';
+    let dateStr = todayStr();
+    const acceptedMembers = openTrip.members.filter(m => m.status === 'accepted');
+    const splitSet = new Set(acceptedMembers.map(m => m.user_id)); // default: everyone
+    return /*#__PURE__*/React.createElement("div", {
+      onClick: () => setShowTripExpense(false),
+      style: {
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(42,31,26,0.6)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        zIndex: 110,
+        padding: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: e => e.stopPropagation(),
+      className: langClass,
+      style: {
+        width: '100%',
+        maxWidth: 420,
+        background: '#FBF6E9',
+        borderRadius: 18,
+        padding: 16,
+        maxHeight: '92vh',
+        overflowY: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 14
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 17,
+        fontWeight: 800,
+        color: '#3D2466'
+      }
+    }, t.trip_expense_title), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowTripExpense(false),
+      style: {
+        background: 'none',
+        padding: 4,
+        fontSize: 20
+      }
+    }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6,
+        marginBottom: 10,
+        flexWrap: 'wrap'
+      }
+    }, ['💸', '🍽️', '🚗', '🏨', '🛒', '🎫', '🍻', '☕', '🎁'].map(em => /*#__PURE__*/React.createElement("button", {
+      key: em,
+      onClick: e => {
+        emojiStr = em;
+        e.currentTarget.parentElement.parentElement.querySelector('[data-expemoji]').textContent = em;
+      },
+      style: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        border: '1px solid rgba(93,58,142,0.2)',
+        background: '#F5EFE0',
+        fontSize: 18
+      }
+    }, em))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      "data-expemoji": true,
+      style: {
+        width: 48,
+        height: 48,
+        borderRadius: 10,
+        fontSize: 22,
+        background: 'linear-gradient(135deg, #F0EAF8, #D9CEEC)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }
+    }, emojiStr), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      onChange: e => {
+        noteStr = e.target.value;
+      },
+      placeholder: t.note,
+      className: langClass,
+      style: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 10,
+        border: '1px solid rgba(127,85,57,0.2)',
+        background: '#F5EFE0',
+        fontSize: 14,
+        outline: 'none'
+      }
+    })), /*#__PURE__*/React.createElement("label", {
+      className: langClass,
+      style: {
+        fontSize: 11,
+        fontWeight: 600,
+        color: '#7F5539',
+        textTransform: 'uppercase'
+      }
+    }, t.trip_amount, " (\u20AD)"), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      inputMode: "numeric",
+      onChange: e => {
+        amountStr = e.target.value.replace(/[^0-9]/g, '');
+        e.target.value = amountStr ? Number(amountStr).toLocaleString() : '';
+      },
+      placeholder: "100,000",
+      className: "display",
+      style: {
+        width: '100%',
+        padding: 12,
+        marginTop: 4,
+        marginBottom: 12,
+        borderRadius: 10,
+        border: '1px solid rgba(127,85,57,0.2)',
+        background: '#F5EFE0',
+        fontSize: 20,
+        fontWeight: 700,
+        outline: 'none',
+        color: '#3D2466'
+      }
+    }), /*#__PURE__*/React.createElement("label", {
+      className: langClass,
+      style: {
+        fontSize: 11,
+        fontWeight: 600,
+        color: '#7F5539',
+        textTransform: 'uppercase'
+      }
+    }, t.trip_paid_by), /*#__PURE__*/React.createElement("select", {
+      defaultValue: currentUser.id,
+      onChange: e => {
+        payerId = e.target.value;
+      },
+      className: langClass,
+      style: {
+        width: '100%',
+        padding: 12,
+        marginTop: 4,
+        marginBottom: 12,
+        borderRadius: 10,
+        border: '1px solid rgba(127,85,57,0.2)',
+        background: '#F5EFE0',
+        fontSize: 14,
+        outline: 'none'
+      }
+    }, acceptedMembers.map(m => /*#__PURE__*/React.createElement("option", {
+      key: m.user_id,
+      value: m.user_id
+    }, m.user_id === currentUser.id ? t.me : m.profile.full_name || m.profile.username || '?'))), /*#__PURE__*/React.createElement("label", {
+      className: langClass,
+      style: {
+        fontSize: 11,
+        fontWeight: 600,
+        color: '#7F5539',
+        textTransform: 'uppercase'
+      }
+    }, t.date), /*#__PURE__*/React.createElement("input", {
+      type: "date",
+      defaultValue: dateStr,
+      onChange: e => {
+        dateStr = e.target.value;
+      },
+      className: "display",
+      style: {
+        width: '100%',
+        padding: 12,
+        marginTop: 4,
+        marginBottom: 12,
+        borderRadius: 10,
+        border: '1px solid rgba(127,85,57,0.2)',
+        background: '#F5EFE0',
+        fontSize: 14,
+        fontWeight: 600,
+        outline: 'none'
+      }
+    }), /*#__PURE__*/React.createElement("label", {
+      className: langClass,
+      style: {
+        fontSize: 11,
+        fontWeight: 600,
+        color: '#7F5539',
+        textTransform: 'uppercase'
+      }
+    }, t.trip_split_among), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        marginTop: 4,
+        marginBottom: 14
+      }
+    }, acceptedMembers.map(m => {
+      const checkedRef = {
+        current: splitSet.has(m.user_id)
+      };
+      return /*#__PURE__*/React.createElement("label", {
+        key: m.user_id,
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 10px',
+          borderRadius: 8,
+          background: '#F5EFE0',
+          cursor: 'pointer'
+        }
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "checkbox",
+        defaultChecked: true,
+        onChange: e => {
+          if (e.target.checked) splitSet.add(m.user_id);else splitSet.delete(m.user_id);
+        },
+        style: {
+          accentColor: '#5D3A8E'
+        }
+      }), /*#__PURE__*/React.createElement("span", {
+        className: langClass,
+        style: {
+          fontSize: 12,
+          color: '#3D2466'
+        }
+      }, m.user_id === currentUser.id ? t.me : m.profile.full_name || m.profile.username || '?'));
+    })), /*#__PURE__*/React.createElement("button", {
+      onClick: async () => {
+        const amt = parseInt(amountStr, 10);
+        if (!amt || amt <= 0) {
+          showToast('?');
+          return;
+        }
+        if (splitSet.size === 0) {
+          showToast('?');
+          return;
+        }
+        const r = await addTripExpense(openTrip.trip.id, payerId, amt, noteStr.trim(), emojiStr, dateStr, [...splitSet]);
+        if (r.error) {
+          showToast('Error: ' + r.error);
+          return;
+        }
+        setShowTripExpense(false);
+        showToast('✓');
+        loadTripDetail(openTrip.trip);
+      },
+      className: langClass,
+      style: {
+        width: '100%',
+        padding: 14,
+        borderRadius: 12,
+        background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+        color: '#F5EFE0',
+        fontSize: 14,
+        fontWeight: 700,
+        border: 'none'
+      }
+    }, t.save)));
+  })(), showLoanFriendPicker && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setShowLoanFriendPicker(false),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(42,31,26,0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 95,
+      padding: 16,
+      animation: 'fadeUp 0.2s ease-out'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    className: langClass,
+    style: {
+      width: '100%',
+      maxWidth: 380,
+      background: '#FBF6E9',
+      borderRadius: 18,
+      padding: 18,
+      boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+      maxHeight: '80vh',
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 17,
+      fontWeight: 800,
+      color: '#1B4332'
+    }
+  }, t.shared_iou_picker_title), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowLoanFriendPicker(false),
+    style: {
+      background: 'none',
+      padding: 4,
+      fontSize: 20
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 12,
+      color: '#7F5539',
+      marginBottom: 12
+    }
+  }, t.shared_iou_picker_hint), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowY: 'auto',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6
+    }
+  }, friends.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      padding: '20px 12px',
+      textAlign: 'center',
+      fontSize: 13,
+      color: '#7F5539',
+      fontStyle: 'italic',
+      background: '#FFF8E7',
+      borderRadius: 10
+    }
+  }, t.shared_iou_no_friends) : friends.map(f => /*#__PURE__*/React.createElement("button", {
+    key: f.id,
+    onClick: () => {
+      setLoanFriendLink({
+        userId: f.id,
+        username: f.username,
+        fullName: f.full_name
+      });
+      setLoanFriend(f.full_name || f.username || '');
+      setShowLoanFriendPicker(false);
+    },
+    className: langClass,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '10px 12px',
+      borderRadius: 10,
+      background: '#F5EFE0',
+      border: '1px solid rgba(127,85,57,0.18)',
+      textAlign: 'left',
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 36,
+      height: 36,
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+      color: '#F5EFE0',
+      fontWeight: 800,
+      fontSize: 14,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0
+    }
+  }, (f.full_name || f.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#1B4332',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
+    }
+  }, f.full_name || f.username), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#7F5539'
+    }
+  }, "@", f.username))))))), showFriendPicker && /*#__PURE__*/React.createElement("div", {
     onClick: () => setShowFriendPicker(null),
     style: {
       position: 'fixed',
@@ -12134,7 +14189,7 @@ function Paruay() {
     }
   }, "@", f.username))))))), showIOUInbox && (() => {
     const unreadCount = notifications.filter(n => !n.is_read).length;
-    const requestCount = iouInbox.length;
+    const requestCount = iouInbox.length + loanInbox.length;
     return /*#__PURE__*/React.createElement("div", {
       onClick: () => setShowIOUInbox(false),
       style: {
@@ -12249,160 +14304,343 @@ function Paruay() {
         flexDirection: 'column',
         gap: 10
       }
-    }, inboxTab === 'requests' && (iouInbox.length === 0 ? /*#__PURE__*/React.createElement("div", {
-      className: langClass,
-      style: {
-        padding: '32px 12px',
-        textAlign: 'center',
-        fontSize: 13,
-        color: '#7F5539',
-        fontStyle: 'italic',
-        background: '#FFF8E7',
-        borderRadius: 10
+    }, inboxTab === 'requests' && (() => {
+      const noRequests = iouInbox.length === 0 && loanInbox.length === 0;
+      if (noRequests) {
+        return /*#__PURE__*/React.createElement("div", {
+          className: langClass,
+          style: {
+            padding: '32px 12px',
+            textAlign: 'center',
+            fontSize: 13,
+            color: '#7F5539',
+            fontStyle: 'italic',
+            background: '#FFF8E7',
+            borderRadius: 10
+          }
+        }, t.iou_inbox_empty);
       }
-    }, t.iou_inbox_empty) : iouInbox.map(item => /*#__PURE__*/React.createElement("div", {
-      key: item.dbId,
-      className: langClass,
-      style: {
-        padding: 14,
-        borderRadius: 14,
-        background: '#FFF8E7',
-        border: '1.5px solid rgba(212,165,116,0.4)'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 10
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 40,
-        height: 40,
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
-        color: '#F5EFE0',
-        fontWeight: 800,
-        fontSize: 16,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0
-      }
-    }, (item.initiatorProfile.full_name || item.initiatorProfile.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        minWidth: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: '#7F5539'
-      }
-    }, t.iou_inbox_from), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 14,
-        fontWeight: 700,
-        color: '#1B4332',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis'
-      }
-    }, item.initiatorProfile.full_name || item.initiatorProfile.username), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: '#7F5539'
-      }
-    }, "@", item.initiatorProfile.username || '?'))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: '#FBF6E9',
-        borderRadius: 10,
-        padding: 10,
-        marginBottom: 10,
-        border: '1px solid rgba(127,85,57,0.12)'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        marginBottom: 4
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        color: '#7F5539'
-      }
-    }, t.iou_inbox_amount), /*#__PURE__*/React.createElement("span", {
-      className: "display",
-      style: {
-        fontSize: 17,
-        fontWeight: 800,
-        color: '#AA3C28'
-      }
-    }, "\u20AD ", fmt(item.amount))), item.note && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        marginBottom: 4
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        color: '#7F5539'
-      }
-    }, t.iou_inbox_note), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 12,
-        color: '#2A1F1A',
-        fontWeight: 600
-      }
-    }, item.emoji, " ", item.note)), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        justifyContent: 'space-between'
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        color: '#7F5539'
-      }
-    }, t.iou_inbox_date), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 12,
-        color: '#2A1F1A'
-      }
-    }, item.date))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 8
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => acceptIOURequest(item),
-      className: langClass,
-      style: {
-        padding: 12,
-        borderRadius: 10,
-        background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
-        color: '#F5EFE0',
-        fontSize: 13,
-        fontWeight: 700,
-        border: 'none',
-        boxShadow: '0 2px 4px rgba(27,67,50,0.25)'
-      }
-    }, t.iou_inbox_accept), /*#__PURE__*/React.createElement("button", {
-      onClick: () => declineIOURequest(item),
-      className: langClass,
-      style: {
-        padding: 12,
-        borderRadius: 10,
-        background: 'transparent',
-        color: '#AA3C28',
-        fontSize: 13,
-        fontWeight: 700,
-        border: '1.5px solid rgba(170,60,40,0.4)'
-      }
-    }, t.iou_inbox_decline))))), inboxTab === 'notifications' && (notifications.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      return /*#__PURE__*/React.createElement(React.Fragment, null, iouInbox.map(item => /*#__PURE__*/React.createElement("div", {
+        key: 'iou-' + item.dbId,
+        className: langClass,
+        style: {
+          padding: 14,
+          borderRadius: 14,
+          background: '#FFF8E7',
+          border: '1.5px solid rgba(212,165,116,0.4)'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          marginBottom: 10
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
+          color: '#F5EFE0',
+          fontWeight: 800,
+          fontSize: 16,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
+        }
+      }, (item.initiatorProfile.full_name || item.initiatorProfile.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 11,
+          color: '#7F5539'
+        }
+      }, t.iou_inbox_from), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 14,
+          fontWeight: 700,
+          color: '#1B4332',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }
+      }, item.initiatorProfile.full_name || item.initiatorProfile.username), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 11,
+          color: '#7F5539'
+        }
+      }, "@", item.initiatorProfile.username || '?'))), /*#__PURE__*/React.createElement("div", {
+        style: {
+          background: '#FBF6E9',
+          borderRadius: 10,
+          padding: 10,
+          marginBottom: 10,
+          border: '1px solid rgba(127,85,57,0.12)'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginBottom: 4
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 11,
+          color: '#7F5539'
+        }
+      }, t.iou_inbox_amount), /*#__PURE__*/React.createElement("span", {
+        className: "display",
+        style: {
+          fontSize: 17,
+          fontWeight: 800,
+          color: '#AA3C28'
+        }
+      }, "\u20AD ", fmt(item.amount))), item.note && /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginBottom: 4
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 11,
+          color: '#7F5539'
+        }
+      }, t.iou_inbox_note), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 12,
+          color: '#2A1F1A',
+          fontWeight: 600
+        }
+      }, item.emoji, " ", item.note)), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 11,
+          color: '#7F5539'
+        }
+      }, t.iou_inbox_date), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 12,
+          color: '#2A1F1A'
+        }
+      }, item.date))), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 8
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: () => acceptIOURequest(item),
+        className: langClass,
+        style: {
+          padding: 12,
+          borderRadius: 10,
+          background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
+          color: '#F5EFE0',
+          fontSize: 13,
+          fontWeight: 700,
+          border: 'none',
+          boxShadow: '0 2px 4px rgba(27,67,50,0.25)'
+        }
+      }, t.iou_inbox_accept), /*#__PURE__*/React.createElement("button", {
+        onClick: () => declineIOURequest(item),
+        className: langClass,
+        style: {
+          padding: 12,
+          borderRadius: 10,
+          background: 'transparent',
+          color: '#AA3C28',
+          fontSize: 13,
+          fontWeight: 700,
+          border: '1.5px solid rgba(170,60,40,0.4)'
+        }
+      }, t.iou_inbox_decline)))), loanInbox.length > 0 && /*#__PURE__*/React.createElement("div", {
+        className: langClass,
+        style: {
+          fontSize: 11,
+          fontWeight: 700,
+          color: '#5D3A8E',
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          marginTop: iouInbox.length > 0 ? 14 : 0,
+          marginBottom: 2
+        }
+      }, t.loan_request_section), loanInbox.map(item => {
+        const periodLabel = item.period === 'day' ? t.period_day : item.period === 'week' ? t.period_week : item.period === 'month' ? t.period_month : item.period === 'year' ? t.period_year : item.period;
+        return /*#__PURE__*/React.createElement("div", {
+          key: 'loan-' + item.dbId,
+          className: langClass,
+          style: {
+            padding: 14,
+            borderRadius: 14,
+            background: 'linear-gradient(135deg, #F0EAF8 0%, #D9CEEC 100%)',
+            border: '1.5px solid rgba(93,58,142,0.35)'
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 10
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          style: {
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+            color: '#F5EFE0',
+            fontWeight: 800,
+            fontSize: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }
+        }, (item.initiatorProfile.full_name || item.initiatorProfile.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+          style: {
+            flex: 1,
+            minWidth: 0
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          style: {
+            fontSize: 11,
+            color: '#5D3A8E'
+          }
+        }, t.iou_inbox_from), /*#__PURE__*/React.createElement("div", {
+          style: {
+            fontSize: 14,
+            fontWeight: 700,
+            color: '#3D2466',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }
+        }, item.initiatorProfile.full_name || item.initiatorProfile.username), /*#__PURE__*/React.createElement("div", {
+          style: {
+            fontSize: 11,
+            color: '#5D3A8E'
+          }
+        }, "@", item.initiatorProfile.username || '?')), /*#__PURE__*/React.createElement("div", {
+          style: {
+            fontSize: 20
+          }
+        }, "\uD83D\uDCB5")), /*#__PURE__*/React.createElement("div", {
+          style: {
+            background: '#FBF6E9',
+            borderRadius: 10,
+            padding: 10,
+            marginBottom: 10,
+            border: '1px solid rgba(93,58,142,0.18)'
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          style: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: 4
+          }
+        }, /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontSize: 11,
+            color: '#5D3A8E'
+          }
+        }, t.loan_inbox_principal), /*#__PURE__*/React.createElement("span", {
+          className: "display",
+          style: {
+            fontSize: 17,
+            fontWeight: 800,
+            color: '#3D2466'
+          }
+        }, "\u20AD ", fmt(item.principal))), /*#__PURE__*/React.createElement("div", {
+          style: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: 4
+          }
+        }, /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontSize: 11,
+            color: '#5D3A8E'
+          }
+        }, t.loan_inbox_rate), /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontSize: 12,
+            color: '#3D2466',
+            fontWeight: 600
+          }
+        }, item.rate, "% / ", periodLabel, " ", item.interestType === 'compound' ? '(' + t.compound_interest + ')' : '')), item.note && /*#__PURE__*/React.createElement("div", {
+          style: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: 4
+          }
+        }, /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontSize: 11,
+            color: '#5D3A8E'
+          }
+        }, t.iou_inbox_note), /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontSize: 12,
+            color: '#3D2466',
+            fontWeight: 600
+          }
+        }, item.note)), /*#__PURE__*/React.createElement("div", {
+          style: {
+            display: 'flex',
+            justifyContent: 'space-between'
+          }
+        }, /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontSize: 11,
+            color: '#5D3A8E'
+          }
+        }, t.start_date), /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontSize: 12,
+            color: '#3D2466'
+          }
+        }, item.startDate))), /*#__PURE__*/React.createElement("div", {
+          style: {
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 8
+          }
+        }, /*#__PURE__*/React.createElement("button", {
+          onClick: () => acceptLoanRequest(item),
+          className: langClass,
+          style: {
+            padding: 12,
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+            color: '#F5EFE0',
+            fontSize: 13,
+            fontWeight: 700,
+            border: 'none',
+            boxShadow: '0 2px 4px rgba(93,58,142,0.3)'
+          }
+        }, t.loan_inbox_accept), /*#__PURE__*/React.createElement("button", {
+          onClick: () => declineLoanRequest(item),
+          className: langClass,
+          style: {
+            padding: 12,
+            borderRadius: 10,
+            background: 'transparent',
+            color: '#AA3C28',
+            fontSize: 13,
+            fontWeight: 700,
+            border: '1.5px solid rgba(170,60,40,0.4)'
+          }
+        }, t.loan_inbox_decline)));
+      }));
+    })(), inboxTab === 'notifications' && (notifications.length === 0 ? /*#__PURE__*/React.createElement("div", {
       className: langClass,
       style: {
         padding: '32px 12px',
@@ -13119,24 +15357,98 @@ function Paruay() {
         letterSpacing: '0.05em',
         textTransform: 'uppercase'
       }
-    }, t.friend_name), /*#__PURE__*/React.createElement("input", {
+    }, t.friend_name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6,
+        marginTop: 4,
+        marginBottom: loanFriendLink ? 4 : 12
+      }
+    }, /*#__PURE__*/React.createElement("input", {
       type: "text",
       value: loanFriend,
       onChange: e => setLoanFriend(e.target.value),
       placeholder: t.friend_name,
+      disabled: !!loanFriendLink,
       className: langClass,
       style: {
-        width: '100%',
+        flex: 1,
         padding: 12,
-        marginTop: 4,
-        marginBottom: 12,
         borderRadius: 10,
-        border: '1px solid rgba(127,85,57,0.2)',
-        background: '#FBF6E9',
+        border: '1px solid ' + (loanFriendLink ? 'rgba(45,90,71,0.4)' : 'rgba(127,85,57,0.2)'),
+        background: loanFriendLink ? '#E8F0E8' : '#FBF6E9',
+        color: loanFriendLink ? '#1B4332' : '#3D2817',
+        fontWeight: loanFriendLink ? 600 : 400,
         fontSize: 15,
         outline: 'none'
       }
-    }), /*#__PURE__*/React.createElement("label", {
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        if (loanFriendLink) {
+          setLoanFriendLink(null);
+        } else {
+          setShowLoanFriendPicker(true);
+        }
+      },
+      title: loanFriendLink ? t.loan_unlink : t.loan_pick_friend,
+      style: {
+        width: 46,
+        borderRadius: 10,
+        background: loanFriendLink ? '#2D5A47' : 'transparent',
+        color: loanFriendLink ? '#F5EFE0' : '#7F5539',
+        border: loanFriendLink ? 'none' : '1px solid rgba(127,85,57,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 16
+      }
+    }, loanFriendLink ? '🔗' : '📒')), loanFriendLink && /*#__PURE__*/React.createElement("div", {
+      className: langClass,
+      style: {
+        fontSize: 11,
+        color: '#2D5A47',
+        fontWeight: 600,
+        marginBottom: 8,
+        fontStyle: 'italic'
+      }
+    }, "\uD83D\uDD17 @", loanFriendLink.username || '?'), loanFriendLink && /*#__PURE__*/React.createElement("label", {
+      className: langClass,
+      style: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: '10px 12px',
+        marginBottom: 12,
+        background: '#FFF8E7',
+        borderRadius: 10,
+        border: '1px solid rgba(212,165,116,0.4)',
+        cursor: 'pointer'
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: sendLoanRequest,
+      onChange: e => setSendLoanRequest(e.target.checked),
+      style: {
+        marginTop: 2,
+        accentColor: '#2D5A47'
+      }
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 700,
+        color: '#1B4332'
+      }
+    }, t.loan_send_request), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: '#7F5539',
+        marginTop: 2
+      }
+    }, t.loan_send_hint))), /*#__PURE__*/React.createElement("label", {
       className: langClass,
       style: {
         fontSize: 11,
@@ -13345,9 +15657,11 @@ function Paruay() {
       onClick: () => {
         const id = newLoanId();
         const txId = genIouId();
+        // v3.2.0 — if linked to a friend AND send-request is on, this is a shared loan
+        const isShared = !!loanFriendLink && sendLoanRequest;
         const newLoan = {
           id,
-          friendName: loanFriend.trim(),
+          friendName: loanFriendLink ? loanFriendLink.fullName || loanFriendLink.username || loanFriend.trim() : loanFriend.trim(),
           emoji: '💵',
           principal: principalNum,
           rate: rateNum,
@@ -13358,23 +15672,29 @@ function Paruay() {
           txId,
           status: 'active',
           note: loanNote.trim(),
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          // v3.2.0 — Shared Loan fields (only when sending a request)
+          counterpartyUserId: isShared ? loanFriendLink.userId : null,
+          sharedStatus: isShared ? 'pending' : null,
+          sharedInitiator: isShared && currentUser ? currentUser.id : null
         };
         persistLoans([newLoan, ...loans]);
-        // Also create expense transaction
+        // Also create expense transaction (only on creditor side; mirror row gets its own tx)
         const tx = {
           id: txId,
           type: 'expense',
           amount: principalNum,
           categoryLabel: t.lend_money,
           categoryEmoji: '💵',
-          note: loanFriend.trim() + (loanNote.trim() ? ' · ' + loanNote.trim() : ''),
+          note: newLoan.friendName + (loanNote.trim() ? ' · ' + loanNote.trim() : ''),
           date: loanStartDate,
           createdAt: new Date().toISOString(),
           loanId: id
         };
         persist([tx, ...transactions]);
         setShowLendModal(false);
+        setLoanFriendLink(null);
+        setSendLoanRequest(true);
         showToast(t.toast_loan_saved);
       },
       className: langClass,
@@ -13520,9 +15840,35 @@ function Paruay() {
         style: {
           fontWeight: 700,
           fontSize: 15,
-          color: '#2A1F1A'
+          color: '#2A1F1A',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          flexWrap: 'wrap'
         }
-      }, loan.friendName), /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement("span", null, loan.friendName), loan.principal < 0 && /*#__PURE__*/React.createElement("span", {
+        className: langClass,
+        style: {
+          fontSize: 9,
+          color: '#AA3C28',
+          fontWeight: 600,
+          padding: '1px 6px',
+          borderRadius: 999,
+          background: '#F8D7DA',
+          border: '1px solid #F1A0A8'
+        }
+      }, t.loan_borrowed), loan.sharedStatus && /*#__PURE__*/React.createElement("span", {
+        className: langClass,
+        style: {
+          fontSize: 9,
+          fontWeight: 700,
+          padding: '1px 6px',
+          borderRadius: 999,
+          background: loan.sharedStatus === 'pending' ? '#FFF3CD' : loan.sharedStatus === 'accepted' ? '#D4EDDA' : loan.sharedStatus === 'declined' ? '#F8D7DA' : '#E2E3E5',
+          color: loan.sharedStatus === 'pending' ? '#856404' : loan.sharedStatus === 'accepted' ? '#155724' : loan.sharedStatus === 'declined' ? '#721C24' : '#383D41',
+          border: '1px solid ' + (loan.sharedStatus === 'pending' ? '#FFE69C' : loan.sharedStatus === 'accepted' ? '#A8D8A8' : loan.sharedStatus === 'declined' ? '#F1A0A8' : '#C6C8CA')
+        }
+      }, loan.sharedStatus === 'pending' && t.loan_status_pending, loan.sharedStatus === 'accepted' && t.loan_status_accepted, loan.sharedStatus === 'declined' && t.loan_status_declined, loan.sharedStatus === 'settled' && t.loan_status_settled)), /*#__PURE__*/React.createElement("div", {
         className: langClass,
         style: {
           fontSize: 11,
@@ -13538,9 +15884,9 @@ function Paruay() {
         style: {
           fontSize: 17,
           fontWeight: 700,
-          color: '#5D3A8E'
+          color: loan.principal < 0 ? '#AA3C28' : '#5D3A8E'
         }
-      }, "\u20AD ", fmt(state.remaining)), /*#__PURE__*/React.createElement("div", {
+      }, "\u20AD ", fmt(Math.abs(state.remaining))), /*#__PURE__*/React.createElement("div", {
         className: langClass,
         style: {
           fontSize: 10,
