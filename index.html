@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.7';
+const APP_VERSION = 'v3.4.8';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -1174,6 +1174,7 @@ const I18N = {
     youll_be_owed: 'ໝູ່ຍັງຄ້າງ',
     your_share: 'ສ່ວນເຮົາ',
     friends_owe_card: 'ໝູ່ຄ້າງຈ່າຍ',
+    i_owe_friends: 'ຂ້ອຍຄ້າງໝູ່',
     friends_owe_full: 'ໝູ່ຍັງຄ້າງຈ່າຍ',
     mark_paid: 'ໝາຍວ່າຈ່າຍແລ້ວ',
     no_ious: 'ບໍ່ມີໝູ່ຄ້າງຈ່າຍ',
@@ -1621,6 +1622,7 @@ const I18N = {
     youll_be_owed: 'เพื่อนค้าง',
     your_share: 'ส่วนของเรา',
     friends_owe_card: 'เพื่อนค้างจ่าย',
+    i_owe_friends: 'ฉันค้างเพื่อน',
     friends_owe_full: 'เพื่อนยังค้างจ่าย',
     mark_paid: 'ทำเครื่องหมายจ่ายแล้ว',
     no_ious: 'ไม่มีเพื่อนค้างจ่าย',
@@ -2068,6 +2070,7 @@ const I18N = {
     youll_be_owed: 'Owed to you',
     your_share: 'Your share',
     friends_owe_card: 'Friends owe you',
+    i_owe_friends: 'I owe friends',
     friends_owe_full: 'Pending IOUs',
     mark_paid: 'Mark as paid',
     no_ious: 'No pending IOUs',
@@ -8970,7 +8973,13 @@ function Paruay() {
   }, "\u2013\u20AD ", fmt(stats.outToday))))), (() => {
     const pendingIOUs = ious.filter(i => i.status === 'pending');
     if (pendingIOUs.length === 0) return null;
-    const totalOwed = pendingIOUs.reduce((s, i) => s + i.amount, 0);
+    // v3.4.8 — split positive (friends owe me) from negative (I owe friends)
+    const owedToMe = pendingIOUs.filter(i => i.amount > 0).reduce((s, i) => s + i.amount, 0);
+    const iOwe = pendingIOUs.filter(i => i.amount < 0).reduce((s, i) => s + Math.abs(i.amount), 0);
+    const owedToMeCount = pendingIOUs.filter(i => i.amount > 0).length;
+    const iOweCount = pendingIOUs.filter(i => i.amount < 0).length;
+    // If user has BOTH directions, show 2-column card. Else show single.
+    const hasBoth = owedToMe > 0 && iOwe > 0;
     return /*#__PURE__*/React.createElement("div", {
       className: "fade-up",
       style: {
@@ -8983,24 +8992,30 @@ function Paruay() {
         width: '100%',
         background: 'linear-gradient(135deg, #FBF6E9 0%, #F5E8C8 100%)',
         borderRadius: 18,
-        padding: '16px 18px',
+        padding: '14px 16px',
         border: '1px solid rgba(212,165,116,0.4)',
+        cursor: 'pointer',
+        textAlign: 'left',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: hasBoth ? 10 : 0
+      }
+    }, owedToMe > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
         display: 'flex',
         alignItems: 'center',
-        gap: 14,
-        cursor: 'pointer',
-        textAlign: 'left'
+        gap: 12
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
+        width: 40,
+        height: 40,
+        borderRadius: 11,
         background: '#D4A574',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 22,
+        fontSize: 20,
         flexShrink: 0
       }
     }, "\uD83E\uDD1D"), /*#__PURE__*/React.createElement("div", {
@@ -9011,35 +9026,90 @@ function Paruay() {
     }, /*#__PURE__*/React.createElement("div", {
       className: langClass,
       style: {
-        fontSize: 13,
+        fontSize: 12,
         color: '#7F5539',
-        fontWeight: 500,
-        marginBottom: 2
+        fontWeight: 500
       }
     }, t.friends_owe_card), /*#__PURE__*/React.createElement("div", {
       className: "display",
       style: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 700,
         color: '#1B4332'
       }
-    }, "\u20AD ", fmt(totalOwed))), /*#__PURE__*/React.createElement("div", {
+    }, "+ \u20AD ", fmt(owedToMe))), /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: 'right'
       }
     }, /*#__PURE__*/React.createElement("div", {
       className: langClass,
       style: {
-        fontSize: 11,
+        fontSize: 10,
         color: '#7F5539',
         fontWeight: 600
       }
-    }, pendingIOUs.length, " ", t.pending), /*#__PURE__*/React.createElement("div", {
+    }, owedToMeCount, " ", t.pending), !hasBoth && /*#__PURE__*/React.createElement("div", {
       style: {
         color: '#7F5539',
         marginTop: 2
       }
-    }, "\u203A"))));
+    }, "\u203A"))), iOwe > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        paddingTop: hasBoth ? 10 : 0,
+        borderTop: hasBoth ? '1px dashed rgba(127,85,57,0.25)' : 'none'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 40,
+        height: 40,
+        borderRadius: 11,
+        background: '#AA3C28',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 20,
+        flexShrink: 0,
+        color: '#F5EFE0'
+      }
+    }, "\uD83D\uDCB8"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: langClass,
+      style: {
+        fontSize: 12,
+        color: '#7F5539',
+        fontWeight: 500
+      }
+    }, t.i_owe_friends || 'ฉันค้างเพื่อน'), /*#__PURE__*/React.createElement("div", {
+      className: "display",
+      style: {
+        fontSize: 18,
+        fontWeight: 700,
+        color: '#AA3C28'
+      }
+    }, "\u2212 \u20AD ", fmt(iOwe))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'right'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: langClass,
+      style: {
+        fontSize: 10,
+        color: '#7F5539',
+        fontWeight: 600
+      }
+    }, iOweCount, " ", t.pending), /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: '#7F5539',
+        marginTop: 2
+      }
+    }, "\u203A")))));
   })(), (() => {
     const activeLoans = loans.filter(l => l.status === 'active');
     if (activeLoans.length === 0) return null;
