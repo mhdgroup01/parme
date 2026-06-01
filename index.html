@@ -615,8 +615,12 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       on IOU/Loan/Notification inboxes + open Trip
  *                       Detail. Live toasts when friends send requests,
  *                       reminders, or trip expenses. Schema v3.4.
+ * v3.4.1 (2026-06-01) — Hotfix: acceptIOURequest sent an invalid
+ *                       'iou_id' column when creating the mirror row.
+ *                       The ious table's PK is 'id' (UUID, default
+ *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.0';
+const APP_VERSION = 'v3.4.1';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5411,9 +5415,10 @@ function Paruay() {
       //    an IOU owned by ME with friendId=initiator + amount NEGATIVE to denote borrowed.
       //    However Paruay's IOU model treats positive amount + friendId as "they owe me" by default.
       //    To preserve direction we use a sign convention: negative amount = "I owe them".
-      const mirrorId = typeof genIouId === 'function' ? genIouId() : 'iou-' + Math.random().toString(36).slice(2);
+      // NOTE: We do NOT specify 'id' — let Postgres generate the UUID via the
+      // 'DEFAULT gen_random_uuid()' on the column. There is no 'iou_id' column
+      // on the ious table (that's only on transactions, as a FK).
       const mirrorRow = {
-        iou_id: mirrorId,
         user_id: currentUser.id,
         tx_id: null,
         friend_id: item.sharedInitiator,
