@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.10';
+const APP_VERSION = 'v3.4.11';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -1176,6 +1176,7 @@ const I18N = {
     friends_owe_card: 'ໝູ່ຄ້າງຈ່າຍ',
     i_owe_friends: 'ຂ້ອຍຄ້າງໝູ່',
     friends_owe_full: 'ໝູ່ຍັງຄ້າງຈ່າຍ',
+    iou_list_mixed: 'IOU ທັງໝົດ',
     mark_paid: 'ໝາຍວ່າຈ່າຍແລ້ວ',
     no_ious: 'ບໍ່ມີໝູ່ຄ້າງຈ່າຍ',
     back_from: 'ຄືນຈາກ',
@@ -1624,6 +1625,7 @@ const I18N = {
     friends_owe_card: 'เพื่อนค้างจ่าย',
     i_owe_friends: 'ฉันค้างเพื่อน',
     friends_owe_full: 'เพื่อนยังค้างจ่าย',
+    iou_list_mixed: 'IOU ทั้งหมด',
     mark_paid: 'ทำเครื่องหมายจ่ายแล้ว',
     no_ious: 'ไม่มีเพื่อนค้างจ่าย',
     back_from: 'คืนจาก',
@@ -2072,6 +2074,7 @@ const I18N = {
     friends_owe_card: 'Friends owe you',
     i_owe_friends: 'I owe friends',
     friends_owe_full: 'Pending IOUs',
+    iou_list_mixed: 'All IOUs',
     mark_paid: 'Mark as paid',
     no_ious: 'No pending IOUs',
     back_from: 'from',
@@ -15415,6 +15418,12 @@ function Paruay() {
   }, t.iou_remind_send)))), showIOUList && (() => {
     const pending = ious.filter(i => i.status === 'pending');
     const paid = ious.filter(i => i.status === 'paid').slice(0, 10);
+    // v3.4.11 — smart title based on direction of pending IOUs
+    const owedToMeSum = pending.filter(i => i.amount > 0).reduce((s, i) => s + i.amount, 0);
+    const iOweSum = pending.filter(i => i.amount < 0).reduce((s, i) => s + Math.abs(i.amount), 0);
+    const hasOwedToMe = owedToMeSum > 0;
+    const hasIOwe = iOweSum > 0;
+    const smartTitle = hasOwedToMe && hasIOwe ? t.iou_list_mixed || 'IOU' : hasIOwe ? t.i_owe_friends || t.friends_owe_full : t.friends_owe_full;
     return /*#__PURE__*/React.createElement("div", {
       onClick: () => setShowIOUList(false),
       style: {
@@ -15457,7 +15466,7 @@ function Paruay() {
         fontWeight: 700,
         color: '#1B4332'
       }
-    }, "\uD83E\uDD1D ", t.friends_owe_full), /*#__PURE__*/React.createElement("button", {
+    }, "\uD83E\uDD1D ", smartTitle), /*#__PURE__*/React.createElement("button", {
       onClick: () => setShowIOUList(false),
       style: {
         background: 'none',
@@ -15466,14 +15475,27 @@ function Paruay() {
     }, /*#__PURE__*/React.createElement(X, {
       size: 22,
       color: "#7F5539"
-    }))), /*#__PURE__*/React.createElement("p", {
+    }))), /*#__PURE__*/React.createElement("div", {
       className: langClass,
       style: {
         fontSize: 13,
         color: '#7F5539',
-        margin: '0 0 16px'
+        margin: '0 0 16px',
+        display: 'flex',
+        gap: 12,
+        flexWrap: 'wrap'
       }
-    }, pending.length, " ", t.pending, " \xB7 \u20AD ", fmt(pending.reduce((s, i) => s + i.amount, 0))), pending.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("span", null, pending.length, " ", t.pending), hasOwedToMe && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#1B4332',
+        fontWeight: 600
+      }
+    }, "+ \u20AD ", fmt(owedToMeSum)), hasIOwe && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#AA3C28',
+        fontWeight: 600
+      }
+    }, "\u2212 \u20AD ", fmt(iOweSum))), pending.length === 0 ? /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: 'center',
         padding: '32px 16px',
