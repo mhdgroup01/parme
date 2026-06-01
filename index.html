@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.5';
+const APP_VERSION = 'v3.4.6';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5275,10 +5275,13 @@ function Paruay() {
       const incoming = [];
       const outgoing = [];
       (rows || []).forEach(f => {
+        // Defensive: never include myself even if DB has weird data
+        if (f.user_a === f.user_b) return;
         if (f.status === 'accepted') {
-          friendIds.add(f.user_a === me ? f.user_b : f.user_a);
+          const other = f.user_a === me ? f.user_b : f.user_a;
+          if (other !== me) friendIds.add(other);
         } else if (f.status === 'pending') {
-          if (f.user_b === me) incoming.push(f);else if (f.user_a === me) outgoing.push(f);
+          if (f.user_b === me && f.user_a !== me) incoming.push(f);else if (f.user_a === me && f.user_b !== me) outgoing.push(f);
         }
       });
       // Fetch public profiles for all involved user IDs
@@ -7912,7 +7915,9 @@ function Paruay() {
         if (m.id === ME_ID) return;
         const amt = shares[m.id] || 0;
         if (amt <= 0) return;
-        const isLinked = !!m.userId && sendIOURequest;
+        // v3.4.6 — defensive: never set counterparty to self (would be invalid)
+        const validUserId = m.userId && currentUser && m.userId !== currentUser.id ? m.userId : null;
+        const isLinked = !!validUserId && sendIOURequest;
         newIOUs.push({
           id: genIouId(),
           txId: tx.id,
@@ -7925,7 +7930,7 @@ function Paruay() {
           status: 'pending',
           createdAt: new Date().toISOString(),
           // v3.0.0 — Shared IOU fields (only set when friend is linked + checkbox ON)
-          counterpartyUserId: isLinked ? m.userId : null,
+          counterpartyUserId: isLinked ? validUserId : null,
           sharedStatus: isLinked ? 'pending' : null,
           sharedInitiator: isLinked && currentUser ? currentUser.id : null,
           sharedGroupId: isLinked ? sharedGroupId : null
@@ -14425,10 +14430,14 @@ function Paruay() {
       background: '#FFF8E7',
       borderRadius: 10
     }
-  }, t.shared_iou_no_friends) : friends.map(f => /*#__PURE__*/React.createElement("button", {
+  }, t.shared_iou_no_friends) : friends.filter(f => f.id !== currentUser.id).map(f => /*#__PURE__*/React.createElement("button", {
     key: f.id,
     onClick: () => {
-      // Find the linkFriend helper via re-setting splitFriends here
+      // v3.4.6 — defensive: don't allow picking self
+      if (f.id === currentUser.id) {
+        setShowFriendPicker(null);
+        return;
+      }
       setSplitFriends(prev => prev.map(row => {
         if (row.id !== showFriendPicker.friendRowId) return row;
         return {
