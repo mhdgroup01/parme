@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.33';
+const APP_VERSION = 'v3.4.34';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -962,6 +962,7 @@ const I18N = {
     rt_poll_now: 'ໂຫລດໃໝ່ດຽວນີ້',
     iou_already_settled: 'ຊຳລະແລ້ວ',
     enter_amount: 'ກະລຸນາໃສ່ຈຳນວນ',
+    trip_label: 'ທິບ',
     select_member: 'ເລືອກຢ່າງໜ້ອຍ 1 ຄົນ',
     iou_resend: 'ສົ່ງໃໝ່',
     iou_resent: 'ສົ່ງແລ້ວ',
@@ -1433,6 +1434,7 @@ const I18N = {
     rt_poll_now: 'รีเฟรชเดี๋ยวนี้',
     iou_already_settled: 'ชำระแล้ว',
     enter_amount: 'กรุณาใส่จำนวนเงิน',
+    trip_label: 'ทริป',
     select_member: 'เลือกอย่างน้อย 1 คน',
     iou_resend: 'ส่งใหม่',
     iou_resent: 'ส่งแล้ว',
@@ -1904,6 +1906,7 @@ const I18N = {
     rt_poll_now: 'Refresh now',
     iou_already_settled: 'Already settled',
     enter_amount: 'Enter an amount',
+    trip_label: 'Trip',
     select_member: 'Select at least one person',
     iou_resend: 'Send again',
     iou_resent: 'Sent again',
@@ -2608,7 +2611,8 @@ const txFromRow = r => ({
   photos: r.photos || undefined,
   split: r.split || undefined,
   iouId: r.iou_id || undefined,
-  loanId: r.loan_id || undefined
+  loanId: r.loan_id || undefined,
+  tripExpenseId: r.trip_expense_id || undefined
 });
 const txToRow = (tx, userId) => ({
   // Don't include id — Supabase will generate UUID; or send if it's already UUID
@@ -2625,7 +2629,12 @@ const txToRow = (tx, userId) => ({
   photos: tx.photos || [],
   split: tx.split || null,
   iou_id: tx.iouId || null,
-  loan_id: tx.loanId || null
+  loan_id: tx.loanId || null,
+  // v3.4.34 — only include if present, so upsert won't fail on DBs that haven't
+  // run the migration yet (column is added by paruay-trip-expense-tx.sql)
+  ...(tx.tripExpenseId ? {
+    trip_expense_id: tx.tripExpenseId
+  } : {})
 });
 
 // — IOUS —
@@ -6465,7 +6474,9 @@ function Paruay() {
       error: 'Not logged in'
     };
     try {
+      // v3.4.34 — capture the inserted row id so we can link a local cash tx to it
       const {
+        data: inserted,
         error
       } = await supabase.from('trip_expenses').insert({
         trip_id: tripId,
@@ -6478,10 +6489,57 @@ function Paruay() {
           members: splitMemberIds
         } : null,
         created_by: currentUser.id
-      });
+      }).select().single();
       if (error) return {
         error: error.message
       };
+
+      // v3.4.34 — if I'M the payer, the full amount left my wallet → record an
+      // EXPENSE in my personal books immediately (option A: deduct the real cash
+      // out now; when friends settle up I'll get income back). Tagged with the
+      // trip expense id so we never double-add it (idempotent on re-sync).
+      if (paidBy === currentUser.id) {
+        const tripExpId = inserted && inserted.id ? `trip:${inserted.id}` : `trip:${uuid()}`;
+        const exists = (transactionsRef.current || transactions).some(tx => tx.tripExpenseId === tripExpId);
+        if (!exists) {
+          const tripName = openTrip && openTrip.trip && (openTrip.trip.name || openTrip.trip.title) || t.trip_label || 'ทริป';
+          const expenseTx = {
+            id: uuid(),
+            type: 'expense',
+            amount: Math.round(amount),
+            categoryLabel: note && note.trim() ? note.trim() : tripName,
+            categoryEmoji: emoji || '💸',
+            note: `🧳 ${tripName}`,
+            date: date,
+            createdAt: new Date().toISOString(),
+            tripExpenseId: tripExpId
+          };
+          setTransactions(prev => {
+            if (prev.some(tx => tx.tripExpenseId === tripExpId)) return prev;
+            const next = [expenseTx, ...prev];
+            saveTxStore(next);
+            return next;
+          });
+          // Persist to server (don't block). If the trip_expense_id column doesn't
+          // exist yet, retry WITHOUT it so the expense still syncs (idempotency then
+          // relies on the local check above for this session).
+          try {
+            const row = txToRow(expenseTx, currentUser.id);
+            const {
+              error: upErr
+            } = await supabase.from('transactions').upsert([row]);
+            if (upErr && /trip_expense_id/.test(upErr.message || '')) {
+              const {
+                trip_expense_id,
+                ...rowNoTag
+              } = row;
+              await supabase.from('transactions').upsert([rowNoTag]);
+            }
+          } catch (e) {
+            console.error('trip expense tx upsert', e);
+          }
+        }
+      }
       return {
         ok: true
       };
