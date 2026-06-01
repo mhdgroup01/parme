@@ -611,8 +611,12 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       roommates / trips. Invite friends, log who
  *                       paid what, smart settlement algorithm computes
  *                       minimum transactions to balance. Schema v3.3.
+ * v3.4.0 (2026-06-01) — Realtime Sync: Supabase Realtime subscriptions
+ *                       on IOU/Loan/Notification inboxes + open Trip
+ *                       Detail. Live toasts when friends send requests,
+ *                       reminders, or trip expenses. Schema v3.4.
  * ==================================================================== */
-const APP_VERSION = 'v3.3.0';
+const APP_VERSION = 'v3.4.0';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -1041,6 +1045,15 @@ const I18N = {
     trip_no_settlements: 'ຍັງບໍ່ມີການຊຳລະ',
     trip_settle_confirm: 'ບັນທຶກວ່າຊຳລະ ₭ {amt} ໃຫ້ {name}?',
     trip_settle_recorded: '✓ ບັນທຶກການຊຳລະແລ້ວ',
+    // v3.4.0 — Realtime toasts
+    rt_iou_request: '📬 ມີຄຳຂໍ IOU ໃໝ່',
+    rt_loan_request: '💰 ມີຄຳຂໍກູ້ຢືມໃໝ່',
+    rt_reminder: '🔔 ໝູ່ເຕືອນທ່ານ',
+    rt_paid_notify: '💰 ໝູ່ແຈ້ງຈ່າຍແລ້ວ',
+    rt_paid_confirmed: '🎉 IOU ຊຳລະຄົບແລ້ວ',
+    rt_trip_expense: '💸 ມີຄ່າໃຊ້ຈ່າຍໃໝ່ໃນທິບ',
+    rt_trip_joined: '👤 ສະມາຊິກໃໝ່ເຂົ້າຮ່ວມທິບ',
+    rt_trip_settled: '✓ ມີການຊຳລະໃໝ່ໃນທິບ',
     auth_password: 'ລະຫັດຜ່ານ',
     auth_password_min: 'ຢ່າງໜ້ອຍ 6 ຕົວອັກສອນ',
     auth_login_btn: 'ເຂົ້າສູ່ລະບົບ',
@@ -1479,6 +1492,15 @@ const I18N = {
     trip_no_settlements: 'ยังไม่มีการชำระ',
     trip_settle_confirm: 'บันทึกว่าชำระ ₭ {amt} ให้ {name}?',
     trip_settle_recorded: '✓ บันทึกการชำระแล้ว',
+    // v3.4.0 — Realtime toasts
+    rt_iou_request: '📬 มีคำขอ IOU ใหม่',
+    rt_loan_request: '💰 มีคำขอกู้ยืมใหม่',
+    rt_reminder: '🔔 เพื่อนเตือนคุณ',
+    rt_paid_notify: '💰 เพื่อนแจ้งจ่ายแล้ว',
+    rt_paid_confirmed: '🎉 IOU ชำระครบแล้ว',
+    rt_trip_expense: '💸 มีค่าใช้จ่ายใหม่ในทริป',
+    rt_trip_joined: '👤 สมาชิกใหม่เข้าร่วมทริป',
+    rt_trip_settled: '✓ มีการชำระใหม่ในทริป',
     auth_password: 'รหัสผ่าน',
     auth_password_min: 'อย่างน้อย 6 ตัวอักษร',
     auth_login_btn: 'เข้าสู่ระบบ',
@@ -1917,6 +1939,15 @@ const I18N = {
     trip_no_settlements: 'No settlements yet',
     trip_settle_confirm: 'Mark ₭ {amt} paid to {name}?',
     trip_settle_recorded: '✓ Settlement recorded',
+    // v3.4.0 — Realtime toasts
+    rt_iou_request: '📬 New IOU request',
+    rt_loan_request: '💰 New loan request',
+    rt_reminder: '🔔 A friend nudged you',
+    rt_paid_notify: '💰 A friend marked paid',
+    rt_paid_confirmed: '🎉 IOU fully settled',
+    rt_trip_expense: '💸 New trip expense',
+    rt_trip_joined: '👤 New trip member joined',
+    rt_trip_settled: '✓ New trip settlement',
     auth_password: 'Password',
     auth_password_min: 'At least 6 characters',
     auth_login_btn: 'Log In',
@@ -6122,6 +6153,159 @@ function Paruay() {
       loadCloudData(currentUser.id);
     }
   }, [authState, currentUser && currentUser.id]);
+
+  // ── v3.4.0 — Realtime subscription for Inbox + Notifications ──
+  // One channel per user that listens to:
+  //   • New IOU requests (counterparty = me)
+  //   • IOU updates (e.g. counterparty confirmed my mark-paid)
+  //   • New Loan requests (counterparty = me)
+  //   • New friend_notifications (recipient = me)
+  // RLS ensures we only receive events for rows we can SELECT.
+  useEffect(() => {
+    if (!supabase || !currentUser) return;
+    const userId = currentUser.id;
+    const channel = supabase.channel('paruay-inbox-' + userId);
+
+    // 1) New IOU request arrived
+    channel.on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'ious',
+      filter: `counterparty_user_id=eq.${userId}`
+    }, payload => {
+      // Only toast for pending requests (not mirrors created by acceptIOURequest)
+      const row = payload.new;
+      if (row && row.shared_status === 'pending') {
+        loadIOUInbox(userId);
+        showToast(t.rt_iou_request || 'New IOU request');
+      }
+    });
+
+    // 2) IOU updated — e.g. counterparty confirmed our mark-paid → settled
+    //    Also catches when our own row was settled by RPC (refresh list)
+    channel.on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'ious',
+      filter: `user_id=eq.${userId}`
+    }, async payload => {
+      const newRow = payload.new;
+      const oldRow = payload.old;
+      // Re-load my IOU list to keep UI in sync
+      try {
+        const {
+          data: rows
+        } = await supabase.from('ious').select('*').order('created_at', {
+          ascending: false
+        });
+        if (rows) setIOUs(rows.map(iouFromRow));
+      } catch (_) {}
+      // Toast specifically when settled
+      if (newRow && newRow.shared_status === 'settled' && oldRow && oldRow.shared_status !== 'settled') {
+        showToast(t.rt_paid_confirmed || 'Settled');
+      }
+    });
+
+    // 3) New Loan request arrived
+    channel.on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'loans',
+      filter: `counterparty_user_id=eq.${userId}`
+    }, payload => {
+      const row = payload.new;
+      if (row && row.shared_status === 'pending') {
+        loadLoanInbox(userId);
+        showToast(t.rt_loan_request || 'New loan request');
+      }
+    });
+
+    // 4) New friend notification (reminder, paid_notify, paid_confirmed, message)
+    channel.on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'friend_notifications',
+      filter: `recipient_id=eq.${userId}`
+    }, payload => {
+      loadNotifications(userId);
+      const n = payload.new;
+      if (!n) return;
+      if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'paid_confirmed') showToast(t.rt_paid_confirmed || 'Settled');
+      // 'message' type → no toast (user opens inbox to see it)
+    });
+    channel.subscribe();
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
+    };
+  }, [supabase, currentUser && currentUser.id]);
+
+  // ── v3.4.0 — Realtime subscription for OPEN trip detail ──
+  // Separate channel that only exists while the trip detail modal is open.
+  // Closes automatically when openTrip becomes null or changes.
+  useEffect(() => {
+    if (!supabase || !currentUser || !openTrip) return;
+    const tripId = openTrip.trip.id;
+    const channel = supabase.channel('paruay-trip-' + tripId);
+
+    // Helper: reload trip detail (debounced via timer so multiple rapid
+    // events from the same operation don't trigger 3+ fetches)
+    let reloadTimer = null;
+    const scheduleReload = () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => {
+        loadTripDetail(openTrip.trip);
+      }, 300);
+    };
+
+    // Expenses (insert + delete)
+    channel.on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'trip_expenses',
+      filter: `trip_id=eq.${tripId}`
+    }, payload => {
+      // Don't toast for our own actions (paid_by = me) to avoid double-toast
+      if (payload.eventType === 'INSERT' && payload.new && payload.new.paid_by !== currentUser.id) {
+        showToast(t.rt_trip_expense || 'New trip expense');
+      }
+      scheduleReload();
+    });
+
+    // Members (invite accepted, left, etc.)
+    channel.on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'trip_members',
+      filter: `trip_id=eq.${tripId}`
+    }, payload => {
+      if (payload.eventType === 'UPDATE' && payload.new && payload.old && payload.new.status === 'accepted' && payload.old.status === 'pending' && payload.new.user_id !== currentUser.id) {
+        showToast(t.rt_trip_joined || 'Member joined');
+      }
+      scheduleReload();
+    });
+
+    // Settlements (someone marked paid)
+    channel.on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'trip_settlements',
+      filter: `trip_id=eq.${tripId}`
+    }, payload => {
+      if (payload.new && payload.new.from_user !== currentUser.id) {
+        showToast(t.rt_trip_settled || 'New settlement');
+      }
+      scheduleReload();
+    });
+    channel.subscribe();
+    return () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
+    };
+  }, [supabase, currentUser && currentUser.id, openTrip && openTrip.trip && openTrip.trip.id]);
   const signInWithGoogle = async () => {
     setAuthError('');
     if (!supabase) {
