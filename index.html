@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.3';
+const APP_VERSION = 'v3.4.5';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -6269,9 +6269,34 @@ function Paruay() {
         setRtStatus('closed');
       }
     });
+
+    // v3.4.4 — DIAGNOSTIC: a parallel channel WITHOUT any filter, listens to
+    // ALL friend_notifications inserts. If THIS gets events but the filtered
+    // channel above doesn't → the filter is wrong. If THIS gets nothing →
+    // realtime broadcasting itself is broken (publication / RLS / replica).
+    const testChannel = supabase.channel('paruay-rt-test-' + userId);
+    testChannel.on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'friend_notifications'
+    }, payload => {
+      console.log('[Paruay Realtime TEST] no-filter notif INSERT', payload.new);
+      setRtEventCount(c => c + 1);
+      setRtLastEvent({
+        type: 'TEST-no-filter',
+        time: new Date().toLocaleTimeString(),
+        info: `recipient=${(payload.new && payload.new.recipient_id || '?').slice(0, 8)}`
+      });
+    });
+    testChannel.subscribe(status => {
+      console.log('[Paruay Realtime TEST] status:', status);
+    });
     return () => {
       try {
         supabase.removeChannel(channel);
+      } catch (_) {}
+      try {
+        supabase.removeChannel(testChannel);
       } catch (_) {}
       setRtStatus('idle');
     };
@@ -6812,14 +6837,25 @@ function Paruay() {
         return !o || JSON.stringify(o) !== JSON.stringify(i);
       });
       if (toDelete.length > 0) {
-        await supabase.from('ious').delete().in('id', toDelete);
+        const {
+          error: delErr
+        } = await supabase.from('ious').delete().in('id', toDelete);
+        if (delErr) {
+          console.error('ious delete', delErr);
+          showToast('Delete IOU error: ' + (delErr.message || ''));
+        }
       }
       if (toUpsert.length > 0) {
         const rows = toUpsert.map(i => iouToRow(i, currentUser.id));
         const {
           error
         } = await supabase.from('ious').upsert(rows);
-        if (error) console.error('ious upsert', error);
+        if (error) {
+          console.error('ious upsert', error, 'rows:', rows);
+          // v3.4.5 — surface error to user so silent DB failures don't make IOUs vanish
+          showToast('⚠️ IOU save FAILED: ' + (error.message || error.code || 'unknown'));
+          return; // Don't log activity on failure
+        }
         // v2.4.0 — log only new IOUs
         const newOnly = toUpsert.filter(i => !oldMap.has(i.id));
         if (newOnly.length > 0) {
@@ -6830,6 +6866,7 @@ function Paruay() {
       }
     } catch (e) {
       console.error('persist ious', e);
+      showToast('⚠️ IOU save error: ' + (e.message || String(e)));
     }
   };
 
