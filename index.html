@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.26';
+const APP_VERSION = 'v3.4.27';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -960,6 +960,7 @@ const I18N = {
     rt_test_slow: 'Realtime ຊ້າ/ບໍ່ສະໝ່ຳສະເໝີ — auto-refresh ຊ່ວຍແລ້ວ',
     rt_iou_declined: 'ຄຳຂໍ IOU ຖືກປະຕິເສດ',
     rt_poll_now: 'ໂຫລດໃໝ່ດຽວນີ້',
+    iou_already_settled: 'ຊຳລະແລ້ວ',
     iou_resend: 'ສົ່ງໃໝ່',
     iou_resent: 'ສົ່ງແລ້ວ',
     iou_edit_friend: 'ປ່ຽນໝູ່',
@@ -1428,6 +1429,7 @@ const I18N = {
     rt_test_slow: 'Realtime ช้า/ไม่สม่ำเสมอ — auto-refresh ช่วยแล้ว',
     rt_iou_declined: 'คำขอ IOU ถูกปฏิเสธ',
     rt_poll_now: 'รีเฟรชเดี๋ยวนี้',
+    iou_already_settled: 'ชำระแล้ว',
     iou_resend: 'ส่งใหม่',
     iou_resent: 'ส่งแล้ว',
     iou_edit_friend: 'เปลี่ยนเพื่อน',
@@ -1896,6 +1898,7 @@ const I18N = {
     rt_test_slow: 'Realtime slow/intermittent — auto-refresh covers it',
     rt_iou_declined: 'IOU request declined',
     rt_poll_now: 'Refresh now',
+    iou_already_settled: 'Already settled',
     iou_resend: 'Send again',
     iou_resent: 'Sent again',
     iou_edit_friend: 'Change friend',
@@ -8645,9 +8648,30 @@ function Paruay() {
     saveIOUsStore(nextIOUs);
 
     // 3) Add the cash transaction immediately (income/expense based on direction)
-    if (!alreadySettled) {
+    // v3.4.27 — use the functional updater so we read the FRESHEST transactions
+    // (the `transactions` closure here can be stale if the user tapped quickly or
+    // a poll just ran). This is the key fix for "balance doesn't move after ✓".
+    if (alreadySettled) {
+      showToast('ℹ️ ' + (t.iou_already_settled || 'Already settled'));
+    } else {
       const tx = buildSettlementTx(isBorrow ? 'expense' : 'income');
-      persist([tx, ...transactions]);
+      // Update React state from the latest array via ref, then persist that array.
+      const base = transactionsRef.current || transactions;
+      const nextTxs = [tx, ...base];
+      setTransactions(nextTxs);
+      saveTxStore(nextTxs);
+      // Sync to server (don't let a slow upsert block the UI update above)
+      if (supabase && currentUser) {
+        try {
+          const row = txToRow(tx, currentUser.id);
+          const {
+            error
+          } = await supabase.from('transactions').upsert([row]);
+          if (error) console.error('settlement tx upsert', error);
+        } catch (e) {
+          console.error('settlement tx upsert', e);
+        }
+      }
     }
 
     // 4) If shared, notify the counterparty so their UI can reflect the settlement
