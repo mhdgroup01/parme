@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.20';
+const APP_VERSION = 'v3.4.21';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -953,6 +953,7 @@ const I18N = {
     iou_status_pending: '⏳ ລໍຢືນຢັນ',
     iou_status_accepted: '✓ ຍອມຮັບແລ້ວ',
     iou_status_declined: '✗ ຖືກປະຕິເສດ',
+    rt_self_test: 'ທົດສອບ Realtime',
     iou_resend: 'ສົ່ງໃໝ່',
     iou_resent: 'ສົ່ງແລ້ວ',
     iou_edit_friend: 'ປ່ຽນໝູ່',
@@ -1414,6 +1415,7 @@ const I18N = {
     iou_status_pending: '⏳ รอยืนยัน',
     iou_status_accepted: '✓ ยอมรับแล้ว',
     iou_status_declined: '✗ ถูกปฏิเสธ',
+    rt_self_test: 'ทดสอบ Realtime',
     iou_resend: 'ส่งใหม่',
     iou_resent: 'ส่งแล้ว',
     iou_edit_friend: 'เปลี่ยนเพื่อน',
@@ -1875,6 +1877,7 @@ const I18N = {
     iou_status_pending: '⏳ Pending',
     iou_status_accepted: '✓ Accepted',
     iou_status_declined: '✗ Declined',
+    rt_self_test: 'Test Realtime',
     iou_resend: 'Send again',
     iou_resent: 'Sent again',
     iou_edit_friend: 'Change friend',
@@ -5156,6 +5159,8 @@ function Paruay() {
   useEffect(() => {
     transactionsRef.current = transactions;
   }, [transactions]);
+  // v3.4.21 — cache the user's JWT so Realtime channels can authenticate (RLS)
+  const accessTokenRef = useRef(null);
   const [showIOUList, setShowIOUList] = useState(false);
   const [splitEnabled, setSplitEnabled] = useState(false);
   // splitFriends is now [{id, name}] — me is implicit (ME_ID)
@@ -5282,8 +5287,18 @@ function Paruay() {
     supabase.auth.getSession().then(({
       data
     }) => {
-      const u = data && data.session && data.session.user;
+      const session = data && data.session;
+      const u = session && session.user;
       if (u) {
+        // v3.4.21 — CRITICAL: hand the user's JWT to Realtime so RLS-filtered
+        // postgres_changes events are actually delivered. Without this the
+        // Realtime socket runs as anon and RLS hides every row → no events.
+        if (session.access_token) {
+          accessTokenRef.current = session.access_token;
+          try {
+            supabase.realtime.setAuth(session.access_token);
+          } catch (_) {}
+        }
         const meta = u.user_metadata || {};
         // v2.4.2 — preserve isAdmin so auth events don't overwrite it
         setCurrentUser(prev => ({
@@ -5305,6 +5320,14 @@ function Paruay() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session && session.user;
       if (u) {
+        // v3.4.21 — refresh Realtime auth on SIGNED_IN / TOKEN_REFRESHED so the
+        // socket always carries a valid JWT (else RLS filters out all events).
+        if (session.access_token) {
+          accessTokenRef.current = session.access_token;
+          try {
+            supabase.realtime.setAuth(session.access_token);
+          } catch (_) {}
+        }
         const meta = u.user_metadata || {};
         // v2.4.2 — preserve isAdmin across TOKEN_REFRESHED and other events
         setCurrentUser(prev => ({
@@ -6373,6 +6396,26 @@ function Paruay() {
     if (!supabase || !currentUser) return;
     const userId = currentUser.id;
     setRtStatus('connecting');
+
+    // v3.4.21 — make sure Realtime carries the freshest JWT before we subscribe,
+    // otherwise RLS-filtered postgres_changes events never arrive. Re-fetch the
+    // session (token may have refreshed) and set it synchronously + async.
+    if (accessTokenRef.current) {
+      try {
+        supabase.realtime.setAuth(accessTokenRef.current);
+      } catch (_) {}
+    }
+    supabase.auth.getSession().then(({
+      data
+    }) => {
+      const tok = data && data.session && data.session.access_token;
+      if (tok) {
+        accessTokenRef.current = tok;
+        try {
+          supabase.realtime.setAuth(tok);
+        } catch (_) {}
+      }
+    }).catch(() => {});
     const channel = supabase.channel('paruay-inbox-' + userId);
     const bump = (type, info) => {
       setRtEventCount(c => c + 1);
@@ -6522,7 +6565,34 @@ function Paruay() {
     testChannel.subscribe(status => {
       console.log('[Paruay Realtime TEST] status:', status);
     });
+
+    // v3.4.21 — iOS PWA: when the app returns to foreground the socket may have
+    // dropped and the JWT may have refreshed. Re-set auth + nudge reconnect so
+    // events keep flowing instead of silently dying after a background period.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      supabase.auth.getSession().then(({
+        data
+      }) => {
+        const tok = data && data.session && data.session.access_token;
+        if (tok) {
+          accessTokenRef.current = tok;
+          try {
+            supabase.realtime.setAuth(tok);
+          } catch (_) {}
+        }
+        // Reconnect the socket if it's not open
+        try {
+          const sock = supabase.realtime;
+          if (sock && typeof sock.isConnected === 'function' && !sock.isConnected()) {
+            sock.connect();
+          }
+        } catch (_) {}
+      }).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
+      document.removeEventListener('visibilitychange', onVisible);
       try {
         supabase.removeChannel(channel);
       } catch (_) {}
@@ -6539,6 +6609,13 @@ function Paruay() {
   useEffect(() => {
     if (!supabase || !currentUser || !openTrip) return;
     const tripId = openTrip.trip.id;
+
+    // v3.4.21 — ensure Realtime has the user's JWT (RLS) before subscribing
+    if (accessTokenRef.current) {
+      try {
+        supabase.realtime.setAuth(accessTokenRef.current);
+      } catch (_) {}
+    }
     const channel = supabase.channel('paruay-trip-' + tripId);
 
     // Helper: reload trip detail (debounced via timer so multiple rapid
@@ -12675,7 +12752,47 @@ function Paruay() {
         color: '#7F5539',
         fontSize: 10
       }
-    }, "last: ", rtLastEvent.type, rtLastEvent.info ? ` (${rtLastEvent.info})` : '', " \xB7 ", rtLastEvent.time));
+    }, "last: ", rtLastEvent.type, rtLastEvent.info ? ` (${rtLastEvent.info})` : '', " \xB7 ", rtLastEvent.time), /*#__PURE__*/React.createElement("button", {
+      onClick: async () => {
+        if (!supabase || !currentUser) return;
+        try {
+          const before = rtEventCount;
+          await supabase.from('friend_notifications').insert({
+            recipient_id: currentUser.id,
+            sender_id: currentUser.id,
+            type: 'message',
+            message: '[realtime self-test]',
+            metadata: {},
+            is_read: false,
+            created_at: new Date().toISOString()
+          });
+          showToast('🧪 Test sent — watch the event counter');
+          setTimeout(() => {
+            // read latest via functional setter to avoid stale closure
+            setRtEventCount(c => {
+              if (c <= before) {
+                showToast('⚠️ No event received — Realtime not delivering');
+              }
+              return c;
+            });
+          }, 2500);
+        } catch (e) {
+          showToast('Test insert failed: ' + (e.message || e));
+        }
+      },
+      className: langClass,
+      style: {
+        marginTop: 6,
+        padding: '7px 10px',
+        borderRadius: 8,
+        background: '#1B4332',
+        color: '#F5EFE0',
+        fontSize: 11,
+        fontWeight: 600,
+        border: 'none',
+        alignSelf: 'flex-start'
+      }
+    }, "\uD83E\uDDEA ", t.rt_self_test || 'Test Realtime'));
   })(), currentUser && unreadMessages.length > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowInbox(true),
     className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
