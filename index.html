@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.25';
+const APP_VERSION = 'v3.4.26';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -959,6 +959,7 @@ const I18N = {
     rt_test_ok: 'Realtime ສົ່ງໄດ້!',
     rt_test_slow: 'Realtime ຊ້າ/ບໍ່ສະໝ່ຳສະເໝີ — auto-refresh ຊ່ວຍແລ້ວ',
     rt_iou_declined: 'ຄຳຂໍ IOU ຖືກປະຕິເສດ',
+    rt_poll_now: 'ໂຫລດໃໝ່ດຽວນີ້',
     iou_resend: 'ສົ່ງໃໝ່',
     iou_resent: 'ສົ່ງແລ້ວ',
     iou_edit_friend: 'ປ່ຽນໝູ່',
@@ -1426,6 +1427,7 @@ const I18N = {
     rt_test_ok: 'Realtime ส่งได้!',
     rt_test_slow: 'Realtime ช้า/ไม่สม่ำเสมอ — auto-refresh ช่วยแล้ว',
     rt_iou_declined: 'คำขอ IOU ถูกปฏิเสธ',
+    rt_poll_now: 'รีเฟรชเดี๋ยวนี้',
     iou_resend: 'ส่งใหม่',
     iou_resent: 'ส่งแล้ว',
     iou_edit_friend: 'เปลี่ยนเพื่อน',
@@ -1893,6 +1895,7 @@ const I18N = {
     rt_test_ok: 'Realtime is delivering!',
     rt_test_slow: 'Realtime slow/intermittent — auto-refresh covers it',
     rt_iou_declined: 'IOU request declined',
+    rt_poll_now: 'Refresh now',
     iou_resend: 'Send again',
     iou_resent: 'Sent again',
     iou_edit_friend: 'Change friend',
@@ -5149,6 +5152,7 @@ function Paruay() {
     rtEventCountRef.current = rtEventCount;
   }, [rtEventCount]);
   const [rtLastEvent, setRtLastEvent] = useState(null); // { type, time, info }
+  const [pollStatus, setPollStatus] = useState(null); // v3.4.26 — { time, count } last successful poll
   const [toast, setToast] = useState('');
 
   // Add-transaction form
@@ -5857,8 +5861,19 @@ function Paruay() {
         const localOnly = transactionsRef.current.filter(lt => !serverTxs.some(st => st.id === lt.id));
         setTransactions([...localOnly, ...serverTxs]);
       }
+      // v3.4.26 — record a successful poll so the diagnostic panel can prove
+      // polling is actually running (and how many tx/iou it last saw).
+      setPollStatus({
+        time: new Date().toLocaleTimeString(),
+        tx: (txRows || []).length,
+        iou: (iouRows || []).length
+      });
     } catch (e) {
       console.error('[pollForUpdates]', e);
+      setPollStatus({
+        time: new Date().toLocaleTimeString(),
+        error: (e.message || String(e)).slice(0, 60)
+      });
     } finally {
       pollBusyRef.current = false;
     }
@@ -13039,7 +13054,28 @@ function Paruay() {
         fontSize: 10,
         fontWeight: 600
       }
-    }, "\uD83D\uDD04 ", t.rt_polling_on || 'Auto-refresh every 9s (fallback active)'), /*#__PURE__*/React.createElement("button", {
+    }, "\uD83D\uDD04 ", t.rt_polling_on || 'Auto-refresh every 9s (fallback active)'), pollStatus && /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: pollStatus.error ? '#AA3C28' : '#7F5539',
+        fontSize: 10
+      }
+    }, pollStatus.error ? `poll error: ${pollStatus.error}` : `last poll: ${pollStatus.time} · ${pollStatus.tx} tx, ${pollStatus.iou} iou`), /*#__PURE__*/React.createElement("button", {
+      onClick: () => currentUser && pollForUpdates(currentUser.id, {
+        announce: true
+      }),
+      className: langClass,
+      style: {
+        marginTop: 4,
+        padding: '7px 10px',
+        borderRadius: 8,
+        background: '#2D5A47',
+        color: '#F5EFE0',
+        fontSize: 11,
+        fontWeight: 600,
+        border: 'none',
+        alignSelf: 'flex-start'
+      }
+    }, "\uD83D\uDD04 ", t.rt_poll_now || 'Refresh now'), /*#__PURE__*/React.createElement("button", {
       onClick: async () => {
         if (!supabase || !currentUser) return;
         try {
