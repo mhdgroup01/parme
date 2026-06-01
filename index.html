@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.28';
+const APP_VERSION = 'v3.4.29';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5608,22 +5608,25 @@ function Paruay() {
       // v3.4.24 — notify the initiator that their request was declined so they
       // get a toast + inbox entry (and can use the resend/edit/delete buttons
       // already on their declined IOU row in v3.4.20).
-      try {
-        await supabase.rpc('send_friend_notification', {
-          p_recipient: item.sharedInitiator,
-          p_type: 'iou_declined',
-          p_body: '',
-          p_iou_id: typeof item.dbId === 'string' && item.dbId.length === 36 ? item.dbId : null,
-          p_metadata: {
-            amount: item.amount,
-            note: item.note,
-            date: item.date,
-            decliner_name: currentUser.name || ''
-          }
-        });
-      } catch (notifErr) {
-        // Notification is best-effort; don't fail the decline if it errors
-        console.warn('decline notification failed', notifErr);
+      // v3.4.29 — skip if initiator is myself (corrupted self-counterparty data).
+      if (item.sharedInitiator && item.sharedInitiator !== currentUser.id) {
+        try {
+          await supabase.rpc('send_friend_notification', {
+            p_recipient: item.sharedInitiator,
+            p_type: 'iou_declined',
+            p_body: '',
+            p_iou_id: typeof item.dbId === 'string' && item.dbId.length === 36 ? item.dbId : null,
+            p_metadata: {
+              amount: item.amount,
+              note: item.note,
+              date: item.date,
+              decliner_name: currentUser.name || ''
+            }
+          });
+        } catch (notifErr) {
+          // Notification is best-effort; don't fail the decline if it errors
+          console.warn('decline notification failed', notifErr);
+        }
       }
       loadIOUInbox(currentUser.id);
       showToast(t.iou_inbox_declined || 'Declined');
@@ -5930,6 +5933,38 @@ function Paruay() {
 
   // Bilateral paid flow — initiator (creditor) sends paid_notify to debtor.
   // The debtor will see notification in inbox → confirm → both IOUs flip to settled.
+  // v3.4.29 — central guard: never deliver a notification to myself. All
+  // notification sends route through here so corrupted self-counterparty data
+  // can't bounce prompts (confirm-receipt, decline, reminder) into my own inbox.
+  const safeSendNotification = async params => {
+    if (!supabase || !currentUser) return {
+      error: 'Not logged in'
+    };
+    if (!params.p_recipient) return {
+      error: 'No recipient'
+    };
+    if (params.p_recipient === currentUser.id) {
+      console.warn('safeSendNotification: recipient is self — skipped', params.p_type);
+      return {
+        error: 'self'
+      };
+    }
+    try {
+      const {
+        error
+      } = await supabase.rpc('send_friend_notification', params);
+      if (error) return {
+        error: error.message
+      };
+      return {
+        ok: true
+      };
+    } catch (e) {
+      return {
+        error: e.message || String(e)
+      };
+    }
+  };
   const notifyIOUPaidShared = async iou => {
     if (!supabase || !currentUser) return {
       error: 'Not logged in'
@@ -5937,6 +5972,15 @@ function Paruay() {
     if (!iou.counterpartyUserId) return {
       error: 'Not shared'
     };
+    // v3.4.29 — never send a paid_notify to myself. Corrupted test data could have
+    // counterparty_user_id == my own id, which would bounce the "confirm receipt"
+    // prompt back into my own inbox (the bug seen in the screenshot).
+    if (iou.counterpartyUserId === currentUser.id) {
+      console.warn('notifyIOUPaidShared: counterparty is self — skipping', iou.id);
+      return {
+        error: 'self'
+      };
+    }
     try {
       // v3.4.15 — only sends the paid_notify; status update is handled by markIOUPaid.
       const {
@@ -5982,8 +6026,8 @@ function Paruay() {
         is_read: true,
         read_at: new Date().toISOString()
       }).eq('id', notif.id);
-      // Send a confirmation notification back to creditor
-      await supabase.rpc('send_friend_notification', {
+      // Send a confirmation notification back to creditor (guarded against self)
+      await safeSendNotification({
         p_recipient: notif.sender_id,
         p_type: 'paid_confirmed',
         p_body: '',
