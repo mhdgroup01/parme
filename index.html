@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.9';
+const APP_VERSION = 'v3.4.10';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5454,11 +5454,11 @@ function Paruay() {
 
       // 3) Refresh inbox + my IOU list
       loadIOUInbox(currentUser.id);
-      // Re-load IOU list for current user
+      // Re-load IOU list for current user (v3.4.10 — filter by user_id)
       try {
         const {
           data: iouRows
-        } = await supabase.from('ious').select('*').order('created_at', {
+        } = await supabase.from('ious').select('*').eq('user_id', currentUser.id).order('created_at', {
           ascending: false
         });
         if (iouRows) setIOUs(iouRows.map(iouFromRow));
@@ -5638,7 +5638,7 @@ function Paruay() {
       try {
         const {
           data: iouRows
-        } = await supabase.from('ious').select('*').order('created_at', {
+        } = await supabase.from('ious').select('*').eq('user_id', currentUser.id).order('created_at', {
           ascending: false
         });
         if (iouRows) setIOUs(iouRows.map(iouFromRow));
@@ -5717,16 +5717,16 @@ function Paruay() {
         p_loan_id: item.dbId
       });
       if (error) throw error;
-      // Refresh inbox + reload all loans
-      loadLoanInbox(currentUser.id);
+      // Refresh inbox + reload all loans (v3.4.10 — filter by user_id)
       try {
         const {
           data: loanRows
-        } = await supabase.from('loans').select('*').order('created_at', {
+        } = await supabase.from('loans').select('*').eq('user_id', currentUser.id).order('created_at', {
           ascending: false
         });
         if (loanRows) setLoans(loanRows.map(loanFromRow));
       } catch (_) {}
+      loadLoanInbox(currentUser.id);
       showToast(t.loan_request_accepted || 'Loan accepted');
     } catch (e) {
       console.error('acceptLoanRequest', e);
@@ -6059,13 +6059,16 @@ function Paruay() {
     setCloudError('');
     try {
       // Parallel fetch for speed (now includes profile w/ is_admin in v2.4.0)
+      // v3.4.10 — IMPORTANT: filter ious/loans by user_id, otherwise RLS leaks
+      // counterparty rows (e.g. B's mirror row visible to A because A is counterparty),
+      // making A see "I owe friend -500K" when it's actually B's row showing B's debt to A.
       const [txRes, iouRes, loanRes, setRes, profRes] = await Promise.all([supabase.from('transactions').select('*').order('date', {
         ascending: false
       }).order('created_at', {
         ascending: false
-      }), supabase.from('ious').select('*').order('created_at', {
+      }), supabase.from('ious').select('*').eq('user_id', userId).order('created_at', {
         ascending: false
-      }), supabase.from('loans').select('*').order('created_at', {
+      }), supabase.from('loans').select('*').eq('user_id', userId).order('created_at', {
         ascending: false
       }), supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(), supabase.from('profiles').select('*').eq('id', userId).maybeSingle()]);
       if (txRes.error) throw txRes.error;
@@ -6218,11 +6221,11 @@ function Paruay() {
       bump('iou_update', payload.new && payload.new.shared_status);
       const newRow = payload.new;
       const oldRow = payload.old;
-      // Re-load my IOU list to keep UI in sync
+      // Re-load my IOU list (v3.4.10 — filter by user_id to avoid counterparty leak)
       try {
         const {
           data: rows
-        } = await supabase.from('ious').select('*').order('created_at', {
+        } = await supabase.from('ious').select('*').eq('user_id', userId).order('created_at', {
           ascending: false
         });
         if (rows) setIOUs(rows.map(iouFromRow));
