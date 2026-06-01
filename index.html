@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.24';
+const APP_VERSION = 'v3.4.25';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -6688,6 +6688,80 @@ function Paruay() {
       if (!n) return;
       // v3.4.22 — shared handler (deduped with polling, handles paid_confirmed income tx)
       processIncomingNotif(n);
+    });
+
+    // v3.4.25 — Realtime: my own transactions (instant balance updates).
+    // Whenever the balance card needs to move (new tx added, settlement income,
+    // edit, delete), the change shows up immediately on every device I'm signed
+    // into instead of waiting up to 9s for the polling fallback to catch it.
+    const seenTxIdsRef = {
+      current: new Set(transactionsRef.current.map(t => t.id))
+    };
+    channel.on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'transactions',
+      filter: `user_id=eq.${userId}`
+    }, payload => {
+      bump('tx', 'insert');
+      const row = payload.new;
+      if (!row || !row.id) return;
+      // Dedup: persist() already inserted this locally before the realtime echo
+      const current = transactionsRef.current;
+      if (current.some(t => t.id === row.id)) return;
+      const newTx = txFromRow(row);
+      setTransactions([newTx, ...current]);
+    });
+    channel.on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'transactions',
+      filter: `user_id=eq.${userId}`
+    }, payload => {
+      bump('tx', 'update');
+      const row = payload.new;
+      if (!row || !row.id) return;
+      const updated = txFromRow(row);
+      setTransactions(prev => prev.map(t => t.id === row.id ? updated : t));
+    });
+    channel.on('postgres_changes', {
+      event: 'DELETE',
+      schema: 'public',
+      table: 'transactions',
+      filter: `user_id=eq.${userId}`
+    }, payload => {
+      bump('tx', 'delete');
+      const old = payload.old;
+      if (!old || !old.id) return;
+      setTransactions(prev => prev.filter(t => t.id !== old.id));
+    });
+
+    // v3.4.25 — Realtime: my own IOUs (instant inbox/settlement updates).
+    // Covers e.g. counterparty's mark-paid flipping shared_status on my row.
+    channel.on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'ious',
+      filter: `user_id=eq.${userId}`
+    }, payload => {
+      bump('iou', 'update');
+      const row = payload.new;
+      if (!row || !row.id) return;
+      const updated = iouFromRow(row);
+      setIOUs(prev => prev.map(i => i.id === row.id ? updated : i));
+    });
+    channel.on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'ious',
+      filter: `user_id=eq.${userId}`
+    }, payload => {
+      bump('iou', 'insert');
+      const row = payload.new;
+      if (!row || !row.id) return;
+      const current = iousRef.current;
+      if (current.some(i => i.id === row.id)) return;
+      setIOUs([iouFromRow(row), ...current]);
     });
     channel.subscribe((status, err) => {
       console.log('[Paruay Realtime] Inbox status:', status, err || '');
