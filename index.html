@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.29';
+const APP_VERSION = 'v3.4.30';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -6034,17 +6034,21 @@ function Paruay() {
         p_iou_id: notif.iou_id,
         p_metadata: notif.metadata || {}
       });
-      // v3.4.24 — when I confirm the counterparty's mark-paid, add MY cash tx
-      // with the direction implied by MY IOU sign:
-      //   • myRow.amount > 0  →  I'm the creditor  →  +INCOME (got money back)
-      //   • myRow.amount < 0  →  I'm the debtor    →  +EXPENSE (paid friend)
-      // Previous code hardcoded 'expense' which moved the creditor's balance the
-      // WRONG direction after they confirmed receipt.
+      // v3.4.30 — add MY cash tx with direction from MY IOU sign:
+      //   • myRow.amount > 0  →  creditor  →  +INCOME (got money back)
+      //   • myRow.amount < 0  →  debtor    →  +EXPENSE (paid friend)
+      // Use the freshest ious via ref, and match on the IOU id from the notif
+      // when possible (more reliable than shared_status which the RPC may flip).
       const meta = notif.metadata || {};
       const amt = meta.amount || 0;
-      const myRow = ious.find(i => i.counterpartyUserId === notif.sender_id && i.sharedStatus === 'accepted');
-      const alreadySettled = myRow && transactions.some(tx => tx.iouId === myRow.id);
-      if (amt > 0 && myRow && !alreadySettled) {
+      const latestIous = iousRef.current || ious;
+      // Prefer matching by the notif's iou_id; fall back to counterparty match.
+      let myRow = latestIous.find(i => i.id === notif.iou_id);
+      if (!myRow) {
+        myRow = latestIous.find(i => i.counterpartyUserId === notif.sender_id);
+      }
+      pushDebug(`confirm sender=${(notif.sender_id || '').slice(0, 6)} amt=${amt} myRow=${myRow ? (myRow.id || '').slice(0, 6) : 'NONE'}`);
+      if (amt > 0 && myRow) {
         const isBorrow = myRow.amount < 0; // I owe them
         const settleTx = {
           id: uuid(),
@@ -6057,9 +6061,33 @@ function Paruay() {
           createdAt: new Date().toISOString(),
           iouId: myRow.id
         };
-        persist([settleTx, ...transactions]);
+        // Functional updater → fresh array + new reference → balance recomputes.
+        setTransactions(prev => {
+          if (prev.some(x => x.iouId === myRow.id)) {
+            pushDebug(`confirm SKIP: tx exists for ${(myRow.id || '').slice(0, 6)}`);
+            return prev;
+          }
+          const next = [settleTx, ...prev];
+          saveTxStore(next);
+          pushDebug(`confirm ADD ${settleTx.type} ₭${amt}`);
+          return next;
+        });
+        // Persist to server (don't block UI)
+        if (supabase && currentUser) {
+          try {
+            const row = txToRow(settleTx, currentUser.id);
+            const {
+              error: txErr
+            } = await supabase.from('transactions').upsert([row]);
+            if (txErr) pushDebug(`confirm upsert ERR: ${txErr.message}`);
+          } catch (e) {
+            pushDebug(`confirm upsert EXC`);
+          }
+        }
+      } else {
+        pushDebug(`confirm NO-TX amt=${amt} hasRow=${!!myRow}`);
       }
-      // Reload everything
+      // Reload IOUs (status sync) — but DON'T overwrite transactions here
       loadNotifications(currentUser.id);
       try {
         const {
