@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.32';
+const APP_VERSION = 'v3.4.33';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -961,6 +961,8 @@ const I18N = {
     rt_iou_declined: 'ຄຳຂໍ IOU ຖືກປະຕິເສດ',
     rt_poll_now: 'ໂຫລດໃໝ່ດຽວນີ້',
     iou_already_settled: 'ຊຳລະແລ້ວ',
+    enter_amount: 'ກະລຸນາໃສ່ຈຳນວນ',
+    select_member: 'ເລືອກຢ່າງໜ້ອຍ 1 ຄົນ',
     iou_resend: 'ສົ່ງໃໝ່',
     iou_resent: 'ສົ່ງແລ້ວ',
     iou_edit_friend: 'ປ່ຽນໝູ່',
@@ -1430,6 +1432,8 @@ const I18N = {
     rt_iou_declined: 'คำขอ IOU ถูกปฏิเสธ',
     rt_poll_now: 'รีเฟรชเดี๋ยวนี้',
     iou_already_settled: 'ชำระแล้ว',
+    enter_amount: 'กรุณาใส่จำนวนเงิน',
+    select_member: 'เลือกอย่างน้อย 1 คน',
     iou_resend: 'ส่งใหม่',
     iou_resent: 'ส่งแล้ว',
     iou_edit_friend: 'เปลี่ยนเพื่อน',
@@ -1899,6 +1903,8 @@ const I18N = {
     rt_iou_declined: 'IOU request declined',
     rt_poll_now: 'Refresh now',
     iou_already_settled: 'Already settled',
+    enter_amount: 'Enter an amount',
+    select_member: 'Select at least one person',
     iou_resend: 'Send again',
     iou_resent: 'Sent again',
     iou_edit_friend: 'Change friend',
@@ -5145,6 +5151,18 @@ function Paruay() {
   const [showCreateTrip, setShowCreateTrip] = useState(false);
   const [showTripInvite, setShowTripInvite] = useState(false);
   const [showTripExpense, setShowTripExpense] = useState(false);
+  // v3.4.33 — keep the trip-expense form fields in a ref so they SURVIVE re-renders
+  // (polling every 9s + realtime were re-rendering the component and resetting the
+  // old `let amountStr=''` locals to empty → "save does nothing" because amount was
+  // wiped between typing and tapping Save).
+  const tripExpenseDraftRef = useRef({
+    payerId: null,
+    amountStr: '',
+    noteStr: '',
+    emojiStr: '💸',
+    dateStr: todayStr(),
+    splitSet: null
+  });
   const [tripDetailTab, setTripDetailTab] = useState('expenses'); // expenses | members | settle
   const [tripLoading, setTripLoading] = useState(false);
   // v3.4.0 — Realtime status (visible in Settings for debugging)
@@ -15057,7 +15075,19 @@ function Paruay() {
         gap: 8
       }
     }, tripDetailTab === 'expenses' && /*#__PURE__*/React.createElement(React.Fragment, null, !isClosed && /*#__PURE__*/React.createElement("button", {
-      onClick: () => setShowTripExpense(true),
+      onClick: () => {
+        // v3.4.33 — fresh draft each time the modal opens
+        const accepted = openTrip.members.filter(m => m.status === 'accepted');
+        tripExpenseDraftRef.current = {
+          payerId: currentUser.id,
+          amountStr: '',
+          noteStr: '',
+          emojiStr: '💸',
+          dateStr: todayStr(),
+          splitSet: new Set(accepted.map(m => m.user_id))
+        };
+        setShowTripExpense(true);
+      },
       className: langClass,
       style: {
         padding: '12px 14px',
@@ -15415,13 +15445,12 @@ function Paruay() {
       }
     }, "\u2713"));
   })))), showTripExpense && openTrip && (() => {
-    let payerId = currentUser.id;
-    let amountStr = '';
-    let noteStr = '';
-    let emojiStr = '💸';
-    let dateStr = todayStr();
+    // v3.4.33 — read/write the draft ref so values survive re-renders
+    const draft = tripExpenseDraftRef.current;
+    if (!draft.splitSet) draft.splitSet = new Set(openTrip.members.filter(m => m.status === 'accepted').map(m => m.user_id));
+    if (!draft.payerId) draft.payerId = currentUser.id;
     const acceptedMembers = openTrip.members.filter(m => m.status === 'accepted');
-    const splitSet = new Set(acceptedMembers.map(m => m.user_id)); // default: everyone
+    const splitSet = draft.splitSet;
     return /*#__PURE__*/React.createElement("div", {
       onClick: () => setShowTripExpense(false),
       style: {
@@ -15477,7 +15506,7 @@ function Paruay() {
     }, ['💸', '🍽️', '🚗', '🏨', '🛒', '🎫', '🍻', '☕', '🎁'].map(em => /*#__PURE__*/React.createElement("button", {
       key: em,
       onClick: e => {
-        emojiStr = em;
+        draft.emojiStr = em;
         e.currentTarget.parentElement.parentElement.querySelector('[data-expemoji]').textContent = em;
       },
       style: {
@@ -15506,10 +15535,11 @@ function Paruay() {
         alignItems: 'center',
         justifyContent: 'center'
       }
-    }, emojiStr), /*#__PURE__*/React.createElement("input", {
+    }, draft.emojiStr), /*#__PURE__*/React.createElement("input", {
       type: "text",
+      defaultValue: draft.noteStr,
       onChange: e => {
-        noteStr = e.target.value;
+        draft.noteStr = e.target.value;
       },
       placeholder: t.note,
       className: langClass,
@@ -15533,9 +15563,10 @@ function Paruay() {
     }, t.trip_amount, " (\u20AD)"), /*#__PURE__*/React.createElement("input", {
       type: "text",
       inputMode: "numeric",
+      defaultValue: draft.amountStr ? Number(draft.amountStr).toLocaleString() : '',
       onChange: e => {
-        amountStr = e.target.value.replace(/[^0-9]/g, '');
-        e.target.value = amountStr ? Number(amountStr).toLocaleString() : '';
+        draft.amountStr = e.target.value.replace(/[^0-9]/g, '');
+        e.target.value = draft.amountStr ? Number(draft.amountStr).toLocaleString() : '';
       },
       placeholder: "100,000",
       className: "display",
@@ -15561,9 +15592,9 @@ function Paruay() {
         textTransform: 'uppercase'
       }
     }, t.trip_paid_by), /*#__PURE__*/React.createElement("select", {
-      defaultValue: currentUser.id,
+      defaultValue: draft.payerId,
       onChange: e => {
-        payerId = e.target.value;
+        draft.payerId = e.target.value;
       },
       className: langClass,
       style: {
@@ -15590,9 +15621,9 @@ function Paruay() {
       }
     }, t.date), /*#__PURE__*/React.createElement("input", {
       type: "date",
-      defaultValue: dateStr,
+      defaultValue: draft.dateStr,
       onChange: e => {
-        dateStr = e.target.value;
+        draft.dateStr = e.target.value;
       },
       className: "display",
       style: {
@@ -15640,7 +15671,7 @@ function Paruay() {
         }
       }, /*#__PURE__*/React.createElement("input", {
         type: "checkbox",
-        defaultChecked: true,
+        defaultChecked: splitSet.has(m.user_id),
         onChange: e => {
           if (e.target.checked) splitSet.add(m.user_id);else splitSet.delete(m.user_id);
         },
@@ -15656,22 +15687,25 @@ function Paruay() {
       }, m.user_id === currentUser.id ? t.me : m.profile.full_name || m.profile.username || '?'));
     })), /*#__PURE__*/React.createElement("button", {
       onClick: async () => {
-        const amt = parseInt(amountStr, 10);
+        // v3.4.33 — read from the draft ref (survives re-renders). Was using
+        // parseInt(amountStr) on a local that got reset to '' by re-renders →
+        // "save does nothing". parseAmount also handles the comma formatting.
+        const amt = parseAmount(draft.amountStr);
         if (!amt || amt <= 0) {
-          showToast('?');
+          showToast('⚠️ ' + (t.enter_amount || 'Enter an amount'));
           return;
         }
         if (splitSet.size === 0) {
-          showToast('?');
+          showToast('⚠️ ' + (t.select_member || 'Select at least one person'));
           return;
         }
-        const r = await addTripExpense(openTrip.trip.id, payerId, amt, noteStr.trim(), emojiStr, dateStr, [...splitSet]);
-        if (r.error) {
+        const r = await addTripExpense(openTrip.trip.id, draft.payerId || currentUser.id, amt, (draft.noteStr || '').trim(), draft.emojiStr, draft.dateStr, [...splitSet]);
+        if (r && r.error) {
           showToast('Error: ' + r.error);
           return;
         }
         setShowTripExpense(false);
-        showToast('✓');
+        showToast('✓ ' + (t.toast_out_saved || 'Saved'));
         loadTripDetail(openTrip.trip);
       },
       className: langClass,
