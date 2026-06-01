@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.21';
+const APP_VERSION = 'v3.4.22';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -954,6 +954,7 @@ const I18N = {
     iou_status_accepted: '✓ ຍອມຮັບແລ້ວ',
     iou_status_declined: '✗ ຖືກປະຕິເສດ',
     rt_self_test: 'ທົດສອບ Realtime',
+    rt_polling_on: 'ໂຫລດໃໝ່ອັດຕະໂນມັດທຸກ 9 ວິ',
     iou_resend: 'ສົ່ງໃໝ່',
     iou_resent: 'ສົ່ງແລ້ວ',
     iou_edit_friend: 'ປ່ຽນໝູ່',
@@ -1416,6 +1417,7 @@ const I18N = {
     iou_status_accepted: '✓ ยอมรับแล้ว',
     iou_status_declined: '✗ ถูกปฏิเสธ',
     rt_self_test: 'ทดสอบ Realtime',
+    rt_polling_on: 'รีเฟรชอัตโนมัติทุก 9 วิ (สำรอง)',
     iou_resend: 'ส่งใหม่',
     iou_resent: 'ส่งแล้ว',
     iou_edit_friend: 'เปลี่ยนเพื่อน',
@@ -1878,6 +1880,7 @@ const I18N = {
     iou_status_accepted: '✓ Accepted',
     iou_status_declined: '✗ Declined',
     rt_self_test: 'Test Realtime',
+    rt_polling_on: 'Auto-refresh every 9s (fallback)',
     iou_resend: 'Send again',
     iou_resent: 'Sent again',
     iou_edit_friend: 'Change friend',
@@ -5161,6 +5164,15 @@ function Paruay() {
   }, [transactions]);
   // v3.4.21 — cache the user's JWT so Realtime channels can authenticate (RLS)
   const accessTokenRef = useRef(null);
+  // v3.4.22 — polling fallback + cross-source toast dedup. Mobile Safari / iOS PWA
+  // WebSockets are unreliable (drop on background, fail to reconnect silently), so
+  // we ALSO poll every few seconds. seenNotifIdsRef dedupes toasts so realtime and
+  // polling never double-fire; notifsInitializedRef suppresses toasts for the
+  // historical notifications loaded at startup.
+  const seenNotifIdsRef = useRef(new Set());
+  const notifsInitializedRef = useRef(false);
+  const pollTimerRef = useRef(null);
+  const pollBusyRef = useRef(false);
   const [showIOUList, setShowIOUList] = useState(false);
   const [splitEnabled, setSplitEnabled] = useState(false);
   // splitFriends is now [{id, name}] — me is implicit (ME_ID)
@@ -5675,6 +5687,120 @@ function Paruay() {
       })));
     } catch (e) {
       console.error('loadNotifications', e);
+    }
+  };
+
+  // v3.4.22 — process ONE incoming notification: show the right toast + side
+  // effects (paid_confirmed → income tx). Deduped via seenNotifIdsRef so realtime
+  // and polling never double-fire for the same row.
+  const processIncomingNotif = n => {
+    if (!n || !n.id) return;
+    if (seenNotifIdsRef.current.has(n.id)) return;
+    seenNotifIdsRef.current.add(n.id);
+    if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'paid_confirmed') {
+      showToast(t.rt_paid_confirmed || 'Settled');
+      try {
+        const meta = n.metadata || {};
+        const amt = meta.amount || 0;
+        const latestIous = iousRef.current || [];
+        const latestTxs = transactionsRef.current || [];
+        const myRow = latestIous.find(i => i.id === n.iou_id);
+        const alreadySettled = myRow && latestTxs.some(tx => tx.iouId === myRow.id);
+        if (amt > 0 && myRow && !alreadySettled) {
+          const incomeTx = {
+            id: uuid(),
+            type: 'income',
+            amount: amt,
+            categoryLabel: myRow.friendName || '',
+            categoryEmoji: '🤝',
+            note: `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
+            date: todayStr(),
+            createdAt: new Date().toISOString(),
+            iouId: myRow.id
+          };
+          persist([incomeTx, ...latestTxs]);
+        }
+      } catch (e) {
+        console.error('[processIncomingNotif] income tx failed', e);
+      }
+    }
+    // 'message' type → no toast (user opens inbox to see it)
+  };
+
+  // v3.4.22 — POLLING FALLBACK. Re-fetch the inbox-relevant data on a timer so
+  // the UI stays fresh even when Realtime delivers nothing (flaky mobile sockets).
+  // Detects genuinely-new notifications and routes them through processIncomingNotif
+  // for toasts. Cheap: a handful of indexed selects every ~9s, paused when hidden.
+  const pollForUpdates = async (userId, {
+    announce = true
+  } = {}) => {
+    if (!supabase || !userId) return;
+    if (pollBusyRef.current) return; // avoid overlap if a poll is still running
+    pollBusyRef.current = true;
+    try {
+      // 1) Notifications — detect new, toast, refresh state
+      const {
+        data: notifRows
+      } = await supabase.from('friend_notifications').select('*').eq('recipient_id', userId).order('created_at', {
+        ascending: false
+      }).limit(60);
+      if (notifRows) {
+        notifRows.forEach(n => {
+          if (seenNotifIdsRef.current.has(n.id)) return;
+          if (announce && notifsInitializedRef.current) {
+            processIncomingNotif(n); // toast + side effects + mark seen
+          } else {
+            seenNotifIdsRef.current.add(n.id); // historical → mark seen, no toast
+          }
+        });
+        notifsInitializedRef.current = true;
+        // hydrate sender profiles + set state
+        const senderIds = [...new Set(notifRows.map(r => r.sender_id))];
+        let profMap = new Map();
+        if (senderIds.length > 0) {
+          const {
+            data: profs
+          } = await supabase.from('profiles').select('id, username, full_name').in('id', senderIds);
+          (profs || []).forEach(p => profMap.set(p.id, p));
+        }
+        setNotifications(notifRows.map(r => ({
+          ...r,
+          senderProfile: profMap.get(r.sender_id) || {
+            id: r.sender_id,
+            username: '?',
+            full_name: ''
+          }
+        })));
+      }
+
+      // 2) IOU inbox (new incoming requests) — detect new pending for a toast
+      const {
+        data: inboxRows
+      } = await supabase.from('ious').select('*').eq('counterparty_user_id', userId).eq('shared_status', 'pending');
+      if (inboxRows) {
+        const prevIds = new Set((iouInbox || []).map(x => x.dbId));
+        const hasNew = inboxRows.some(r => !prevIds.has(r.id));
+        // refresh full inbox (also hydrates initiator profiles)
+        loadIOUInbox(userId);
+        if (hasNew && notifsInitializedRef.current && inboxRows.length > prevIds.size) {
+          showToast(t.rt_iou_request || 'New IOU request');
+        }
+      }
+
+      // 3) Loan inbox
+      loadLoanInbox(userId);
+
+      // 4) My IOU list — keeps balances/badges fresh (filter by user_id for RLS)
+      const {
+        data: iouRows
+      } = await supabase.from('ious').select('*').eq('user_id', userId).order('created_at', {
+        ascending: false
+      });
+      if (iouRows) setIOUs(iouRows.map(iouFromRow));
+    } catch (e) {
+      console.error('[pollForUpdates]', e);
+    } finally {
+      pollBusyRef.current = false;
     }
   };
   const sendReminderNotification = async (iou, body) => {
@@ -6496,40 +6622,8 @@ function Paruay() {
       loadNotifications(userId);
       const n = payload.new;
       if (!n) return;
-      if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'paid_confirmed') {
-        showToast(t.rt_paid_confirmed || 'Settled');
-        // v3.4.12 — creditor receives paid_confirmed → add INCOME tx
-        // v3.4.13 — use refs to access latest ious/transactions (closure was stale!)
-        try {
-          const meta = n.metadata || {};
-          const amt = meta.amount || 0;
-          // n.iou_id is MY iou id (the creditor's row that was marked paid)
-          const latestIous = iousRef.current || [];
-          const latestTxs = transactionsRef.current || [];
-          const myRow = latestIous.find(i => i.id === n.iou_id);
-          const alreadySettled = myRow && latestTxs.some(tx => tx.iouId === myRow.id);
-          if (amt > 0 && myRow && !alreadySettled) {
-            const incomeTx = {
-              id: uuid(),
-              type: 'income',
-              amount: amt,
-              categoryLabel: myRow.friendName || '',
-              categoryEmoji: '🤝',
-              note: `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
-              date: todayStr(),
-              createdAt: new Date().toISOString(),
-              iouId: myRow.id
-            };
-            persist([incomeTx, ...latestTxs]);
-            console.log('[paid_confirmed] added income tx', amt, 'for', myRow.friendName);
-          } else {
-            console.log('[paid_confirmed] skip add income — myRow:', !!myRow, 'amt:', amt, 'alreadySettled:', alreadySettled);
-          }
-        } catch (e) {
-          console.error('[paid_confirmed] add income tx failed', e);
-        }
-      }
-      // 'message' type → no toast (user opens inbox to see it)
+      // v3.4.22 — shared handler (deduped with polling, handles paid_confirmed income tx)
+      processIncomingNotif(n);
     });
     channel.subscribe((status, err) => {
       console.log('[Paruay Realtime] Inbox status:', status, err || '');
@@ -6683,6 +6777,55 @@ function Paruay() {
       } catch (_) {}
     };
   }, [supabase, currentUser && currentUser.id, openTrip && openTrip.trip && openTrip.trip.id]);
+
+  // ── v3.4.22 — POLLING FALLBACK (belt-and-suspenders for flaky mobile sockets) ──
+  // While logged in AND the tab is visible, poll every ~9s. This guarantees the
+  // inbox, balances and badges update even if Realtime delivers nothing. Realtime
+  // (when it works) still gives instant updates; polling caps the worst-case lag.
+  useEffect(() => {
+    if (!supabase || !currentUser) return;
+    const userId = currentUser.id;
+    const INTERVAL = 9000;
+
+    // First run primes the dedup set WITHOUT toasting historical notifications.
+    pollForUpdates(userId, {
+      announce: false
+    });
+    const startPolling = () => {
+      if (pollTimerRef.current) return;
+      pollTimerRef.current = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          pollForUpdates(userId, {
+            announce: true
+          });
+        }
+      }, INTERVAL);
+    };
+    const stopPolling = () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+    startPolling();
+
+    // When returning to foreground, poll immediately (don't wait for the interval)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        pollForUpdates(userId, {
+          announce: true
+        });
+        startPolling();
+      } else {
+        stopPolling(); // pause while hidden to save battery/requests
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      stopPolling();
+    };
+  }, [supabase, currentUser && currentUser.id]);
   const signInWithGoogle = async () => {
     setAuthError('');
     if (!supabase) {
@@ -12752,7 +12895,13 @@ function Paruay() {
         color: '#7F5539',
         fontSize: 10
       }
-    }, "last: ", rtLastEvent.type, rtLastEvent.info ? ` (${rtLastEvent.info})` : '', " \xB7 ", rtLastEvent.time), /*#__PURE__*/React.createElement("button", {
+    }, "last: ", rtLastEvent.type, rtLastEvent.info ? ` (${rtLastEvent.info})` : '', " \xB7 ", rtLastEvent.time), /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: '#2D5A47',
+        fontSize: 10,
+        fontWeight: 600
+      }
+    }, "\uD83D\uDD04 ", t.rt_polling_on || 'Auto-refresh every 9s (fallback active)'), /*#__PURE__*/React.createElement("button", {
       onClick: async () => {
         if (!supabase || !currentUser) return;
         try {
