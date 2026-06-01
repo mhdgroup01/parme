@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.17';
+const APP_VERSION = 'v3.4.18';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -7081,18 +7081,32 @@ function Paruay() {
 
   // Generate shareable text summary of a bill (supports new + old format)
   const generateBillText = txId => {
-    const tx = transactions.find(x => x.id === txId);
-    if (!tx || !tx.split) return '';
+    let tx = transactions.find(x => x.id === txId);
     const billIOUs = ious.filter(i => i.txId === txId);
+    // v3.4.18 — synthetic mode (recipient side has no tx)
+    if (!tx) {
+      if (billIOUs.length === 0) return '';
+      const first = billIOUs[0];
+      const totalAbs = billIOUs.reduce((s, i) => s + Math.abs(i.amount), 0);
+      tx = {
+        id: txId,
+        categoryEmoji: first.emoji || '🤝',
+        categoryLabel: first.note || '—',
+        note: '',
+        date: first.date,
+        amount: totalAbs,
+        split: null
+      };
+    }
     const total = tx.amount;
-    const isNew = !!tx.split.members;
+    const isNew = !!(tx.split && tx.split.members);
     const members = isNew ? tx.split.members : null;
     const shares = isNew ? tx.split.shares : null;
     const lines = [];
     lines.push(`${tx.categoryEmoji || '🤝'} ${tx.categoryLabel}${tx.note ? ' · ' + tx.note : ''}`);
     lines.push(`📅 ${tx.date}`);
     lines.push('');
-    if (tx.split.items && tx.split.items.length > 0) {
+    if (tx.split && tx.split.items && tx.split.items.length > 0) {
       lines.push(`📋 ${t.items}:`);
       tx.split.items.forEach(it => {
         if (isNew && it.memberIds && it.memberIds.length > 0 && it.memberIds.length < members.length) {
@@ -7121,12 +7135,18 @@ function Paruay() {
           lines.push(`  • ${m.name} — ₭ ${fmt(amt)} ${status}`);
         }
       });
-    } else {
+    } else if (tx.split) {
       const each = tx.split.share || 0;
       lines.push(`  • ${t.me} — ₭ ${fmt(each)} ✓`);
       billIOUs.forEach(iou => {
         const status = iou.status === 'paid' ? '✓' : '⏳';
         lines.push(`  • ${iou.friendName} — ₭ ${fmt(iou.amount)} ${status}`);
+      });
+    } else {
+      // v3.4.18 synthetic: no "me" row, abs amounts
+      billIOUs.forEach(iou => {
+        const status = iou.status === 'paid' ? '✓' : '⏳';
+        lines.push(`  • ${iou.friendName} — ₭ ${fmt(Math.abs(iou.amount))} ${status}`);
       });
     }
     lines.push('');
@@ -7136,9 +7156,26 @@ function Paruay() {
 
   // Generate a PNG image of the bill using Canvas
   const drawBillImage = async txId => {
-    const tx = transactions.find(x => x.id === txId);
-    if (!tx) return null;
+    let tx = transactions.find(x => x.id === txId);
     const billIOUs = ious.filter(i => i.txId === txId);
+    // v3.4.18 — synthetic mode: if I'm the recipient/mirror side and don't have the
+    // original transaction, build a minimal one from the IOU data so we can still
+    // generate the bill image. The "members" section will fall back to billIOUs.
+    if (!tx) {
+      if (billIOUs.length === 0) return null;
+      const first = billIOUs[0];
+      const totalAbs = billIOUs.reduce((s, i) => s + Math.abs(i.amount), 0);
+      tx = {
+        id: txId,
+        categoryEmoji: first.emoji || '🤝',
+        categoryLabel: first.note || '—',
+        note: '',
+        date: first.date,
+        amount: totalAbs,
+        split: null,
+        photos: []
+      };
+    }
     const items = tx.split && tx.split.items || [];
     const share = tx.split && tx.split.share || 0;
     const people = tx.split && tx.split.people || 1;
@@ -7254,7 +7291,8 @@ function Paruay() {
     H += 30; // total
     H += SEC;
     // Members count: new format uses tx.split.members, old uses billIOUs + 1 (self)
-    const memberRowCount = tx.split && tx.split.members ? tx.split.members.length : billIOUs.length + 1;
+    // v3.4.18 — synthetic mode (no tx.split) skips "Me" row, so just billIOUs.length
+    const memberRowCount = tx.split && tx.split.members ? tx.split.members.length : tx.split ? billIOUs.length + 1 : billIOUs.length;
     H += 26 + memberRowCount * ROW + SEC;
     // Items may have subtitles (18px each) showing who consumed — overestimate buffer
     if (items.length > 0) H += items.length * 18;
@@ -7427,7 +7465,8 @@ function Paruay() {
     y += SEC;
 
     // MEMBERS — handle new (per-person shares) vs old (uniform share)
-    const isNewFormat = !!tx.split.members;
+    // v3.4.18 — safe access: tx.split may be null (synthetic/recipient-side)
+    const isNewFormat = !!(tx.split && tx.split.members);
     const splitMembers = isNewFormat ? tx.split.members : null;
     const splitShares = isNewFormat ? tx.split.shares : null;
     ctx.textAlign = 'left';
@@ -7461,15 +7500,19 @@ function Paruay() {
         y += ROW;
       });
     } else {
-      // Old format: me + IOUs at uniform share
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#1B4332';
-      ctx.font = '600 15px "Noto Sans Lao", "Noto Sans Thai", "Inter", sans-serif';
-      ctx.fillText('• ' + (t.me || 'Me'), PAD + 6, y);
-      ctx.textAlign = 'right';
-      ctx.font = '600 15px Fraunces, serif';
-      ctx.fillText('₭ ' + fmt(share) + '  ✓', W - PAD, y);
-      y += ROW;
+      // Old format / synthetic — me + IOUs at uniform share
+      // v3.4.18 — when synthetic (no tx.split), skip "Me" row + use absolute amounts
+      const isSynthetic = !tx.split;
+      if (!isSynthetic) {
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#1B4332';
+        ctx.font = '600 15px "Noto Sans Lao", "Noto Sans Thai", "Inter", sans-serif';
+        ctx.fillText('• ' + (t.me || 'Me'), PAD + 6, y);
+        ctx.textAlign = 'right';
+        ctx.font = '600 15px Fraunces, serif';
+        ctx.fillText('₭ ' + fmt(share) + '  ✓', W - PAD, y);
+        y += ROW;
+      }
       billIOUs.forEach(iou => {
         const isPaid = iou.status === 'paid';
         ctx.textAlign = 'left';
@@ -7484,7 +7527,7 @@ function Paruay() {
         ctx.textAlign = 'right';
         ctx.fillStyle = isPaid ? '#A89580' : '#D4A574';
         ctx.font = '600 15px Fraunces, serif';
-        ctx.fillText('₭ ' + fmt(iou.amount) + (isPaid ? '  ✓' : '  ⏳'), W - PAD, y);
+        ctx.fillText('₭ ' + fmt(Math.abs(iou.amount)) + (isPaid ? '  ✓' : '  ⏳'), W - PAD, y);
         y += ROW;
       });
     }
