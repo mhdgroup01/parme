@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.12';
+const APP_VERSION = 'v3.4.13';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5102,6 +5102,16 @@ function Paruay() {
   });
   const [emojiPickerFor, setEmojiPickerFor] = useState(null); // { type, id }
   const [ious, setIOUs] = useState(() => loadIOUs());
+  // v3.4.13 — refs that always hold the latest state so realtime listeners
+  // can read up-to-date values (closure capture would otherwise read stale state).
+  const iousRef = useRef(ious);
+  const transactionsRef = useRef(transactions);
+  useEffect(() => {
+    iousRef.current = ious;
+  }, [ious]);
+  useEffect(() => {
+    transactionsRef.current = transactions;
+  }, [transactions]);
   const [showIOUList, setShowIOUList] = useState(false);
   const [splitEnabled, setSplitEnabled] = useState(false);
   // splitFriends is now [{id, name}] — me is implicit (ME_ID)
@@ -6105,8 +6115,48 @@ function Paruay() {
       const txs = (txRes.data || []).map(txFromRow);
       const iouR = (iouRes.data || []).map(iouFromRow);
       const loanR = (loanRes.data || []).map(loanFromRow);
-      setTransactions(txs);
-      saveTxStore(txs);
+
+      // v3.4.13 — reconcile settled IOUs: for any IOU that's settled/paid but has no
+      // matching settlement transaction (because we missed the realtime event while
+      // the app was closed), add the missing income/expense now.
+      const reconciledTxs = [...txs];
+      let reconciledCount = 0;
+      iouR.forEach(iou => {
+        const isSettled = iou.sharedStatus === 'settled' || !iou.counterpartyUserId && iou.status === 'paid';
+        if (!isSettled) return;
+        const hasSettlementTx = reconciledTxs.some(tx => tx.iouId === iou.id);
+        if (hasSettlementTx) return;
+        // Add the missing tx
+        const isBorrow = iou.amount < 0;
+        const settlementTx = {
+          id: uuid(),
+          type: isBorrow ? 'expense' : 'income',
+          amount: Math.abs(iou.amount),
+          categoryLabel: iou.friendName || '',
+          categoryEmoji: '🤝',
+          note: isBorrow ? `${t.paid_to_friend || 'จ่ายคืนให้'} ${iou.friendName || ''}` : `${t.back_from || 'รับคืนจาก'} ${iou.friendName || ''}`,
+          date: iou.paidAt ? iou.paidAt.slice(0, 10) : todayStr(),
+          createdAt: new Date().toISOString(),
+          iouId: iou.id
+        };
+        reconciledTxs.unshift(settlementTx);
+        reconciledCount++;
+      });
+      if (reconciledCount > 0) {
+        console.log('[reconcile] added', reconciledCount, 'missing settlement transactions');
+        // Persist the missing transactions to DB
+        const newTxs = reconciledTxs.filter(tx => !txs.some(t => t.id === tx.id));
+        if (newTxs.length > 0 && currentUser) {
+          try {
+            const rows = newTxs.map(tx => txToRow(tx, currentUser.id));
+            await supabase.from('transactions').upsert(rows);
+          } catch (e) {
+            console.error('[reconcile] persist failed', e);
+          }
+        }
+      }
+      setTransactions(reconciledTxs);
+      saveTxStore(reconciledTxs);
       setIOUs(iouR);
       saveIOUsStore(iouR);
       setLoans(loanR);
@@ -6293,13 +6343,15 @@ function Paruay() {
       if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'paid_confirmed') {
         showToast(t.rt_paid_confirmed || 'Settled');
         // v3.4.12 — creditor receives paid_confirmed → add INCOME tx
-        // (the debtor's confirm finalized the bilateral settlement)
+        // v3.4.13 — use refs to access latest ious/transactions (closure was stale!)
         try {
           const meta = n.metadata || {};
           const amt = meta.amount || 0;
           // n.iou_id is MY iou id (the creditor's row that was marked paid)
-          const myRow = ious.find(i => i.id === n.iou_id);
-          const alreadySettled = myRow && transactions.some(tx => tx.iouId === myRow.id);
+          const latestIous = iousRef.current || [];
+          const latestTxs = transactionsRef.current || [];
+          const myRow = latestIous.find(i => i.id === n.iou_id);
+          const alreadySettled = myRow && latestTxs.some(tx => tx.iouId === myRow.id);
           if (amt > 0 && myRow && !alreadySettled) {
             const incomeTx = {
               id: uuid(),
@@ -6312,7 +6364,10 @@ function Paruay() {
               createdAt: new Date().toISOString(),
               iouId: myRow.id
             };
-            persist([incomeTx, ...transactions]);
+            persist([incomeTx, ...latestTxs]);
+            console.log('[paid_confirmed] added income tx', amt, 'for', myRow.friendName);
+          } else {
+            console.log('[paid_confirmed] skip add income — myRow:', !!myRow, 'amt:', amt, 'alreadySettled:', alreadySettled);
           }
         } catch (e) {
           console.error('[paid_confirmed] add income tx failed', e);
