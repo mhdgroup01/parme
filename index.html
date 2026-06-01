@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.22';
+const APP_VERSION = 'v3.4.23';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -955,6 +955,9 @@ const I18N = {
     iou_status_declined: '✗ ຖືກປະຕິເສດ',
     rt_self_test: 'ທົດສອບ Realtime',
     rt_polling_on: 'ໂຫລດໃໝ່ອັດຕະໂນມັດທຸກ 9 ວິ',
+    rt_test_sent: 'ສົ່ງທົດສອບແລ້ວ — ກຳລັງລໍ event…',
+    rt_test_ok: 'Realtime ສົ່ງໄດ້!',
+    rt_test_slow: 'Realtime ຊ້າ/ບໍ່ສະໝ່ຳສະເໝີ — auto-refresh ຊ່ວຍແລ້ວ',
     iou_resend: 'ສົ່ງໃໝ່',
     iou_resent: 'ສົ່ງແລ້ວ',
     iou_edit_friend: 'ປ່ຽນໝູ່',
@@ -1418,6 +1421,9 @@ const I18N = {
     iou_status_declined: '✗ ถูกปฏิเสธ',
     rt_self_test: 'ทดสอบ Realtime',
     rt_polling_on: 'รีเฟรชอัตโนมัติทุก 9 วิ (สำรอง)',
+    rt_test_sent: 'ส่งทดสอบแล้ว — กำลังรอ event…',
+    rt_test_ok: 'Realtime ส่งได้!',
+    rt_test_slow: 'Realtime ช้า/ไม่สม่ำเสมอ — auto-refresh ช่วยแล้ว',
     iou_resend: 'ส่งใหม่',
     iou_resent: 'ส่งแล้ว',
     iou_edit_friend: 'เปลี่ยนเพื่อน',
@@ -1881,6 +1887,9 @@ const I18N = {
     iou_status_declined: '✗ Declined',
     rt_self_test: 'Test Realtime',
     rt_polling_on: 'Auto-refresh every 9s (fallback)',
+    rt_test_sent: 'Test sent — watching for event…',
+    rt_test_ok: 'Realtime is delivering!',
+    rt_test_slow: 'Realtime slow/intermittent — auto-refresh covers it',
     iou_resend: 'Send again',
     iou_resent: 'Sent again',
     iou_edit_friend: 'Change friend',
@@ -5132,6 +5141,10 @@ function Paruay() {
   // v3.4.0 — Realtime status (visible in Settings for debugging)
   const [rtStatus, setRtStatus] = useState('idle'); // idle | connecting | connected | error | timeout | closed
   const [rtEventCount, setRtEventCount] = useState(0);
+  const rtEventCountRef = useRef(0); // v3.4.23 — ref mirror for accurate self-test comparison
+  useEffect(() => {
+    rtEventCountRef.current = rtEventCount;
+  }, [rtEventCount]);
   const [rtLastEvent, setRtLastEvent] = useState(null); // { type, time, info }
   const [toast, setToast] = useState('');
 
@@ -12905,7 +12918,7 @@ function Paruay() {
       onClick: async () => {
         if (!supabase || !currentUser) return;
         try {
-          const before = rtEventCount;
+          const before = rtEventCountRef.current;
           await supabase.from('friend_notifications').insert({
             recipient_id: currentUser.id,
             sender_id: currentUser.id,
@@ -12915,16 +12928,14 @@ function Paruay() {
             is_read: false,
             created_at: new Date().toISOString()
           });
-          showToast('🧪 Test sent — watch the event counter');
+          showToast('🧪 ' + (t.rt_test_sent || 'Test sent — watching for event…'));
           setTimeout(() => {
-            // read latest via functional setter to avoid stale closure
-            setRtEventCount(c => {
-              if (c <= before) {
-                showToast('⚠️ No event received — Realtime not delivering');
-              }
-              return c;
-            });
-          }, 2500);
+            if (rtEventCountRef.current > before) {
+              showToast('✅ ' + (t.rt_test_ok || 'Realtime is delivering!'));
+            } else {
+              showToast('⚠️ ' + (t.rt_test_slow || 'Realtime slow/intermittent — auto-refresh covers it'));
+            }
+          }, 4000);
         } catch (e) {
           showToast('Test insert failed: ' + (e.message || e));
         }
