@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.2';
+const APP_VERSION = 'v3.4.3';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5070,6 +5070,10 @@ function Paruay() {
   const [showTripExpense, setShowTripExpense] = useState(false);
   const [tripDetailTab, setTripDetailTab] = useState('expenses'); // expenses | members | settle
   const [tripLoading, setTripLoading] = useState(false);
+  // v3.4.0 — Realtime status (visible in Settings for debugging)
+  const [rtStatus, setRtStatus] = useState('idle'); // idle | connecting | connected | error | timeout | closed
+  const [rtEventCount, setRtEventCount] = useState(0);
+  const [rtLastEvent, setRtLastEvent] = useState(null); // { type, time, info }
   const [toast, setToast] = useState('');
 
   // Add-transaction form
@@ -6169,7 +6173,16 @@ function Paruay() {
   useEffect(() => {
     if (!supabase || !currentUser) return;
     const userId = currentUser.id;
+    setRtStatus('connecting');
     const channel = supabase.channel('paruay-inbox-' + userId);
+    const bump = (type, info) => {
+      setRtEventCount(c => c + 1);
+      setRtLastEvent({
+        type,
+        time: new Date().toLocaleTimeString(),
+        info
+      });
+    };
 
     // 1) New IOU request arrived
     channel.on('postgres_changes', {
@@ -6179,6 +6192,7 @@ function Paruay() {
       filter: `counterparty_user_id=eq.${userId}`
     }, payload => {
       console.log('[Paruay Realtime] 📬 IOU INSERT event', payload.new);
+      bump('iou_insert', payload.new && payload.new.shared_status);
       // Only toast for pending requests (not mirrors created by acceptIOURequest)
       const row = payload.new;
       if (row && row.shared_status === 'pending') {
@@ -6195,6 +6209,7 @@ function Paruay() {
       table: 'ious',
       filter: `user_id=eq.${userId}`
     }, async payload => {
+      bump('iou_update', payload.new && payload.new.shared_status);
       const newRow = payload.new;
       const oldRow = payload.old;
       // Re-load my IOU list to keep UI in sync
@@ -6219,6 +6234,7 @@ function Paruay() {
       table: 'loans',
       filter: `counterparty_user_id=eq.${userId}`
     }, payload => {
+      bump('loan_insert', payload.new && payload.new.shared_status);
       const row = payload.new;
       if (row && row.shared_status === 'pending') {
         loadLoanInbox(userId);
@@ -6234,6 +6250,7 @@ function Paruay() {
       filter: `recipient_id=eq.${userId}`
     }, payload => {
       console.log('[Paruay Realtime] 🔔 Notification INSERT event', payload.new);
+      bump('notif', payload.new && payload.new.type);
       loadNotifications(userId);
       const n = payload.new;
       if (!n) return;
@@ -6241,22 +6258,22 @@ function Paruay() {
       // 'message' type → no toast (user opens inbox to see it)
     });
     channel.subscribe((status, err) => {
+      console.log('[Paruay Realtime] Inbox status:', status, err || '');
       if (status === 'SUBSCRIBED') {
-        console.log('[Paruay Realtime] ✓ Inbox subscribed for user', userId);
+        setRtStatus('connected');
       } else if (status === 'CHANNEL_ERROR') {
-        console.error('[Paruay Realtime] ✗ Inbox channel ERROR:', err);
+        setRtStatus('error');
       } else if (status === 'TIMED_OUT') {
-        console.warn('[Paruay Realtime] ⏱ Inbox subscription TIMED OUT — Realtime may not be enabled on tables. Run paruay-realtime-schema.sql.');
+        setRtStatus('timeout');
       } else if (status === 'CLOSED') {
-        console.log('[Paruay Realtime] Inbox channel closed');
-      } else {
-        console.log('[Paruay Realtime] Inbox status:', status);
+        setRtStatus('closed');
       }
     });
     return () => {
       try {
         supabase.removeChannel(channel);
       } catch (_) {}
+      setRtStatus('idle');
     };
   }, [supabase, currentUser && currentUser.id]);
 
@@ -12018,7 +12035,39 @@ function Paruay() {
       fontSize: 11,
       fontWeight: 900
     }
-  }, tripInvitations.length)), currentUser && unreadMessages.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, tripInvitations.length)), currentUser && (() => {
+    const dot = rtStatus === 'connected' ? '🟢' : rtStatus === 'connecting' ? '🟡' : rtStatus === 'error' ? '🔴' : rtStatus === 'timeout' ? '⏱️' : rtStatus === 'closed' ? '⚫' : '⚪';
+    const label = rtStatus === 'connected' ? 'Connected' : rtStatus === 'connecting' ? 'Connecting…' : rtStatus === 'error' ? 'ERROR — check RLS / SQL' : rtStatus === 'timeout' ? 'TIMEOUT — Run paruay-realtime-schema.sql' : rtStatus === 'closed' ? 'Closed' : 'Idle';
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '10px 12px',
+        marginBottom: 10,
+        borderRadius: 12,
+        background: '#F5EFE0',
+        border: '1px solid ' + (rtStatus === 'connected' ? 'rgba(45,90,71,0.3)' : rtStatus === 'error' || rtStatus === 'timeout' ? 'rgba(170,60,40,0.4)' : 'rgba(127,85,57,0.2)'),
+        fontSize: 11,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        fontWeight: 700,
+        color: '#3D2817'
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCE1 Realtime: ", dot, " ", label), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#7F5539'
+      }
+    }, "events: ", rtEventCount)), rtLastEvent && /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: '#7F5539',
+        fontSize: 10
+      }
+    }, "last: ", rtLastEvent.type, rtLastEvent.info ? ` (${rtLastEvent.info})` : '', " \xB7 ", rtLastEvent.time));
+  })(), currentUser && unreadMessages.length > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowInbox(true),
     className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
     style: {
