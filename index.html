@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.6';
+const APP_VERSION = 'v3.4.7';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -6552,18 +6552,57 @@ function Paruay() {
     }
   };
   const signOut = async () => {
-    if (!supabase) return;
-    // Clear local cache so the next user starts clean
+    // v3.4.7 — robust logout: force-clear local state EVEN IF auth.signOut fails
+    // (handles network errors, stale tokens, hung realtime channels, etc.)
+    console.log('[signOut] starting');
+    // 1) Clear local cache first
     try {
       localStorage.removeItem('paruay_tx');
       localStorage.removeItem('paruay_ious');
       localStorage.removeItem('paruay_loans');
       localStorage.removeItem('paruay_settings');
+      // Also clear Supabase auth tokens to break stuck sessions
+      const keys = Object.keys(localStorage);
+      keys.forEach(k => {
+        if (k.startsWith('sb-') || k.includes('supabase.auth.token')) {
+          try {
+            localStorage.removeItem(k);
+          } catch (_) {}
+        }
+      });
     } catch (_) {}
+    // 2) Clear state immediately so UI flips to logged-out screen
     setTransactions([]);
     setIOUs([]);
     setLoans([]);
-    await supabase.auth.signOut();
+    setFriends([]);
+    setFriendIncoming([]);
+    setIOUInbox([]);
+    setLoanInbox([]);
+    setNotifications([]);
+    setTrips([]);
+    setTripInvitations([]);
+    setCurrentUser(null);
+    setAuthState('logged-out');
+    // 3) Tell Supabase (best-effort; may fail if token already gone)
+    if (supabase) {
+      try {
+        const result = await Promise.race([supabase.auth.signOut(), new Promise(resolve => setTimeout(() => resolve({
+          error: {
+            message: 'timeout'
+          }
+        }), 3000))]);
+        if (result && result.error) {
+          console.error('[signOut] auth.signOut error/timeout:', result.error);
+        } else {
+          console.log('[signOut] auth.signOut OK');
+        }
+      } catch (e) {
+        console.error('[signOut] threw:', e);
+      }
+    }
+    showToast(t.auth_signout || 'Logged out');
+    console.log('[signOut] done');
   };
   // Loan form fields
   const [loanFriend, setLoanFriend] = useState('');
