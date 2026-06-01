@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.11';
+const APP_VERSION = 'v3.4.12';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -1180,6 +1180,7 @@ const I18N = {
     mark_paid: 'ໝາຍວ່າຈ່າຍແລ້ວ',
     no_ious: 'ບໍ່ມີໝູ່ຄ້າງຈ່າຍ',
     back_from: 'ຄືນຈາກ',
+    paid_to_friend: 'ຈ່າຍຄືນໃຫ້',
     toast_paid: '✓ ໝູ່ຈ່າຍຄືນແລ້ວ',
     pending: 'ຄ້າງຢູ່',
     person_n: 'ໝູ່',
@@ -1629,6 +1630,7 @@ const I18N = {
     mark_paid: 'ทำเครื่องหมายจ่ายแล้ว',
     no_ious: 'ไม่มีเพื่อนค้างจ่าย',
     back_from: 'คืนจาก',
+    paid_to_friend: 'จ่ายคืนให้',
     toast_paid: '✓ เพื่อนจ่ายคืนแล้ว',
     pending: 'ค้างอยู่',
     person_n: 'เพื่อน',
@@ -2078,6 +2080,7 @@ const I18N = {
     mark_paid: 'Mark as paid',
     no_ious: 'No pending IOUs',
     back_from: 'from',
+    paid_to_friend: 'Paid back to',
     toast_paid: '✓ Marked as paid',
     pending: 'pending',
     person_n: 'Friend',
@@ -5636,6 +5639,27 @@ function Paruay() {
         p_iou_id: notif.iou_id,
         p_metadata: notif.metadata || {}
       });
+      // v3.4.12 — debtor (me) confirmed I paid back → add EXPENSE tx to my books
+      const meta = notif.metadata || {};
+      const amt = meta.amount || 0;
+      // Find my matching IOU row (debtor side, counterparty=sender of paid_notify which is creditor)
+      const myRow = ious.find(i => i.counterpartyUserId === notif.sender_id && i.sharedStatus === 'accepted');
+      // Idempotency: don't re-add if already settled this IOU
+      const alreadySettled = myRow && transactions.some(tx => tx.iouId === myRow.id);
+      if (amt > 0 && myRow && !alreadySettled) {
+        const expenseTx = {
+          id: uuid(),
+          type: 'expense',
+          amount: amt,
+          categoryLabel: myRow.friendName || '',
+          categoryEmoji: '🤝',
+          note: `${t.paid_to_friend || 'จ่ายคืน'} ${myRow.friendName || ''}`,
+          date: todayStr(),
+          createdAt: new Date().toISOString(),
+          iouId: myRow.id
+        };
+        persist([expenseTx, ...transactions]);
+      }
       // Reload everything
       loadNotifications(currentUser.id);
       try {
@@ -6266,7 +6290,34 @@ function Paruay() {
       loadNotifications(userId);
       const n = payload.new;
       if (!n) return;
-      if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'paid_confirmed') showToast(t.rt_paid_confirmed || 'Settled');
+      if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'paid_confirmed') {
+        showToast(t.rt_paid_confirmed || 'Settled');
+        // v3.4.12 — creditor receives paid_confirmed → add INCOME tx
+        // (the debtor's confirm finalized the bilateral settlement)
+        try {
+          const meta = n.metadata || {};
+          const amt = meta.amount || 0;
+          // n.iou_id is MY iou id (the creditor's row that was marked paid)
+          const myRow = ious.find(i => i.id === n.iou_id);
+          const alreadySettled = myRow && transactions.some(tx => tx.iouId === myRow.id);
+          if (amt > 0 && myRow && !alreadySettled) {
+            const incomeTx = {
+              id: uuid(),
+              type: 'income',
+              amount: amt,
+              categoryLabel: myRow.friendName || '',
+              categoryEmoji: '🤝',
+              note: `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
+              date: todayStr(),
+              createdAt: new Date().toISOString(),
+              iouId: myRow.id
+            };
+            persist([incomeTx, ...transactions]);
+          }
+        } catch (e) {
+          console.error('[paid_confirmed] add income tx failed', e);
+        }
+      }
       // 'message' type → no toast (user opens inbox to see it)
     });
     channel.subscribe((status, err) => {
@@ -7879,31 +7930,35 @@ function Paruay() {
     }
   };
   const markIOUPaid = async iou => {
-    // v3.1.0 — For shared IOUs (accepted, with counterparty), use the bilateral
-    // confirmation flow: creditor marks paid locally + sends paid_notify to debtor.
-    // The debtor confirms via inbox → confirm_iou_settled() RPC flips BOTH sides.
-    // Negative amount = I'm the debtor — for those rows, do NOT generate an income tx.
+    // v3.4.12 — comprehensive settlement: always create a cash transaction
+    // when IOU is marked paid, so balance reflects reality.
+    //   • Creditor (amount > 0) marks paid → ADD INCOME (got money back)
+    //   • Debtor   (amount < 0) marks paid → ADD EXPENSE (paid friend)
+    // Idempotency: skip if a tx with this iouId already exists.
     const isBorrow = iou.amount < 0; // I owe — not the creditor
     const isShared = !!iou.counterpartyUserId && iou.sharedStatus === 'accepted';
+    const absAmount = Math.abs(iou.amount);
 
-    // Only create an income tx when I'm the creditor (positive amount) AND not shared
-    // (For shared accepted: keep the IOU pending settlement until counterparty confirms)
-    if (!isBorrow && !isShared) {
-      const incomeTx = {
-        id: Date.now() + Math.random(),
-        type: 'income',
-        amount: iou.amount,
-        categoryLabel: iou.friendName,
-        categoryEmoji: '🤝',
-        note: `${t.back_from} ${iou.friendName}`,
-        date: todayStr(),
-        createdAt: new Date().toISOString(),
-        iouId: iou.id
-      };
-      persist([incomeTx, ...transactions]);
-    }
+    // Build the settlement transaction (income for creditor, expense for debtor)
+    const buildSettlementTx = type => ({
+      id: uuid(),
+      type,
+      // 'income' or 'expense'
+      amount: absAmount,
+      categoryLabel: iou.friendName || '',
+      categoryEmoji: '🤝',
+      note: type === 'income' ? `${t.back_from || 'รับคืนจาก'} ${iou.friendName || ''}` : `${t.paid_to_friend || 'จ่ายคืน'} ${iou.friendName || ''}`,
+      date: todayStr(),
+      createdAt: new Date().toISOString(),
+      iouId: iou.id
+    });
+
+    // Idempotency check: don't re-add if we already settled this IOU
+    const alreadySettled = transactions.some(tx => tx.iouId === iou.id);
     if (isShared && !isBorrow) {
-      // Creditor side: send paid_notify and mark locally as paid pending settlement
+      // ── Shared CREDITOR ── Send paid_notify, mark locally as paid pending bilateral confirm.
+      // Do NOT add income tx yet — it will be added when the paid_confirmed notification arrives
+      // from the debtor (handled in realtime listener below).
       const result = await notifyIOUPaidShared(iou);
       if (result.error) {
         showToast('Error: ' + result.error);
@@ -7911,13 +7966,18 @@ function Paruay() {
       }
       showToast(t.iou_paid_notify_sent || 'Confirmation sent');
     } else {
-      // Local-only mark (legacy / unlinked friends / borrower side)
+      // ── Local mark (legacy / unlinked / debtor side) ──
+      // Mark paid locally + add appropriate cash tx (income or expense).
       const updated = ious.map(x => x.id === iou.id ? {
         ...x,
         status: 'paid',
         paidAt: new Date().toISOString()
       } : x);
       persistIOUs(updated);
+      if (!alreadySettled) {
+        const tx = buildSettlementTx(isBorrow ? 'expense' : 'income');
+        persist([tx, ...transactions]);
+      }
       showToast(t.iou_settled_local || t.toast_paid);
     }
   };
