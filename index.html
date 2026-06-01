@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.30';
+const APP_VERSION = 'v3.4.31';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -6011,15 +6011,92 @@ function Paruay() {
 
   // Called when debtor confirms a paid_notify → flips BOTH books (RPC handles group)
   const confirmIOUSettled = async notif => {
-    if (!supabase || !currentUser) return;
-    if (!notif.iou_id) return;
-    try {
-      const {
-        error
-      } = await supabase.rpc('confirm_iou_settled', {
-        p_iou_id: notif.iou_id
+    pushDebug(`confirm CLICK iou_id=${notif.iou_id ? String(notif.iou_id).slice(0, 6) : 'NULL'} sender=${(notif.sender_id || '').slice(0, 6)}`);
+    if (!supabase || !currentUser) {
+      pushDebug('confirm ABORT: no supabase/user');
+      return;
+    }
+    if (!notif.iou_id) {
+      // v3.4.31 — notif has no iou_id (older notification or RPC didn't store it).
+      // Fall back to finding MY accepted IOU with this counterparty so we can still
+      // settle + add the cash tx instead of silently doing nothing.
+      pushDebug('confirm: no iou_id → fallback by counterparty');
+      const latest = iousRef.current || ious;
+      const fallbackRow = latest.find(i => i.counterpartyUserId === notif.sender_id && (i.sharedStatus === 'accepted' || i.sharedStatus === 'settled'));
+      if (!fallbackRow) {
+        pushDebug('confirm FAIL: no matching IOU at all');
+        showToast('⚠️ ' + (t.confirm_no_iou || 'Cannot find matching IOU'));
+        return;
+      }
+      // settle just this row via its id
+      return confirmIOUSettled({
+        ...notif,
+        iou_id: fallbackRow.id
       });
-      if (error) throw error;
+    }
+    try {
+      // v3.4.31 — CRITICAL FIX: add MY cash tx FIRST, before the RPC. The RPC can
+      // fail (e.g. 'forbidden' if the iou_id belongs to the other party, or the row
+      // is already settled) and the old code did `throw error` which skipped the
+      // income entirely → balance never moved. The cash movement is the important
+      // part for the user; the RPC is just status bookkeeping.
+      const meta = notif.metadata || {};
+      const amt = meta.amount || 0;
+      const latestIous = iousRef.current || ious;
+      // Find MY row: prefer one I own with this counterparty; the notif.iou_id may
+      // point at the OTHER party's row (RPC requires me to be its counterparty).
+      let myRow = latestIous.find(i => i.counterpartyUserId === notif.sender_id && (i.sharedStatus === 'accepted' || i.sharedStatus === 'settled'));
+      if (!myRow) myRow = latestIous.find(i => i.id === notif.iou_id);
+      pushDebug(`confirm amt=${amt} myRow=${myRow ? (myRow.id || '').slice(0, 6) : 'NONE'} sign=${myRow ? myRow.amount : '?'}`);
+      if (amt > 0 && myRow) {
+        const isBorrow = myRow.amount < 0;
+        const settleTx = {
+          id: uuid(),
+          type: isBorrow ? 'expense' : 'income',
+          amount: amt,
+          categoryLabel: myRow.friendName || '',
+          categoryEmoji: '🤝',
+          note: isBorrow ? `${t.paid_to_friend || 'จ่ายคืน'} ${myRow.friendName || ''}` : `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
+          date: todayStr(),
+          createdAt: new Date().toISOString(),
+          iouId: myRow.id
+        };
+        setTransactions(prev => {
+          if (prev.some(x => x.iouId === myRow.id)) {
+            pushDebug(`confirm SKIP: tx exists`);
+            return prev;
+          }
+          const next = [settleTx, ...prev];
+          saveTxStore(next);
+          pushDebug(`confirm ADD ${settleTx.type} ₭${amt} → balance should move`);
+          return next;
+        });
+        if (supabase && currentUser) {
+          try {
+            const row = txToRow(settleTx, currentUser.id);
+            const {
+              error: txErr
+            } = await supabase.from('transactions').upsert([row]);
+            if (txErr) pushDebug(`confirm tx upsert ERR: ${txErr.message}`);
+          } catch (e) {
+            pushDebug(`confirm tx upsert EXC`);
+          }
+        }
+      } else {
+        pushDebug(`confirm NO-TX: amt=${amt} hasRow=${!!myRow}`);
+      }
+
+      // Now the bookkeeping: flip status via RPC (best-effort, won't block the cash tx)
+      try {
+        const {
+          error
+        } = await supabase.rpc('confirm_iou_settled', {
+          p_iou_id: notif.iou_id
+        });
+        if (error) pushDebug(`confirm RPC err (ignored): ${error.message}`);
+      } catch (rpcErr) {
+        pushDebug(`confirm RPC exc (ignored)`);
+      }
       // Mark notification as actioned + read
       await supabase.from('friend_notifications').update({
         action_taken: true,
@@ -6034,59 +6111,6 @@ function Paruay() {
         p_iou_id: notif.iou_id,
         p_metadata: notif.metadata || {}
       });
-      // v3.4.30 — add MY cash tx with direction from MY IOU sign:
-      //   • myRow.amount > 0  →  creditor  →  +INCOME (got money back)
-      //   • myRow.amount < 0  →  debtor    →  +EXPENSE (paid friend)
-      // Use the freshest ious via ref, and match on the IOU id from the notif
-      // when possible (more reliable than shared_status which the RPC may flip).
-      const meta = notif.metadata || {};
-      const amt = meta.amount || 0;
-      const latestIous = iousRef.current || ious;
-      // Prefer matching by the notif's iou_id; fall back to counterparty match.
-      let myRow = latestIous.find(i => i.id === notif.iou_id);
-      if (!myRow) {
-        myRow = latestIous.find(i => i.counterpartyUserId === notif.sender_id);
-      }
-      pushDebug(`confirm sender=${(notif.sender_id || '').slice(0, 6)} amt=${amt} myRow=${myRow ? (myRow.id || '').slice(0, 6) : 'NONE'}`);
-      if (amt > 0 && myRow) {
-        const isBorrow = myRow.amount < 0; // I owe them
-        const settleTx = {
-          id: uuid(),
-          type: isBorrow ? 'expense' : 'income',
-          amount: amt,
-          categoryLabel: myRow.friendName || '',
-          categoryEmoji: '🤝',
-          note: isBorrow ? `${t.paid_to_friend || 'จ่ายคืน'} ${myRow.friendName || ''}` : `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
-          date: todayStr(),
-          createdAt: new Date().toISOString(),
-          iouId: myRow.id
-        };
-        // Functional updater → fresh array + new reference → balance recomputes.
-        setTransactions(prev => {
-          if (prev.some(x => x.iouId === myRow.id)) {
-            pushDebug(`confirm SKIP: tx exists for ${(myRow.id || '').slice(0, 6)}`);
-            return prev;
-          }
-          const next = [settleTx, ...prev];
-          saveTxStore(next);
-          pushDebug(`confirm ADD ${settleTx.type} ₭${amt}`);
-          return next;
-        });
-        // Persist to server (don't block UI)
-        if (supabase && currentUser) {
-          try {
-            const row = txToRow(settleTx, currentUser.id);
-            const {
-              error: txErr
-            } = await supabase.from('transactions').upsert([row]);
-            if (txErr) pushDebug(`confirm upsert ERR: ${txErr.message}`);
-          } catch (e) {
-            pushDebug(`confirm upsert EXC`);
-          }
-        }
-      } else {
-        pushDebug(`confirm NO-TX amt=${amt} hasRow=${!!myRow}`);
-      }
       // Reload IOUs (status sync) — but DON'T overwrite transactions here
       loadNotifications(currentUser.id);
       try {
