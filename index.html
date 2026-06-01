@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.23';
+const APP_VERSION = 'v3.4.24';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -958,6 +958,7 @@ const I18N = {
     rt_test_sent: 'ສົ່ງທົດສອບແລ້ວ — ກຳລັງລໍ event…',
     rt_test_ok: 'Realtime ສົ່ງໄດ້!',
     rt_test_slow: 'Realtime ຊ້າ/ບໍ່ສະໝ່ຳສະເໝີ — auto-refresh ຊ່ວຍແລ້ວ',
+    rt_iou_declined: 'ຄຳຂໍ IOU ຖືກປະຕິເສດ',
     iou_resend: 'ສົ່ງໃໝ່',
     iou_resent: 'ສົ່ງແລ້ວ',
     iou_edit_friend: 'ປ່ຽນໝູ່',
@@ -1424,6 +1425,7 @@ const I18N = {
     rt_test_sent: 'ส่งทดสอบแล้ว — กำลังรอ event…',
     rt_test_ok: 'Realtime ส่งได้!',
     rt_test_slow: 'Realtime ช้า/ไม่สม่ำเสมอ — auto-refresh ช่วยแล้ว',
+    rt_iou_declined: 'คำขอ IOU ถูกปฏิเสธ',
     iou_resend: 'ส่งใหม่',
     iou_resent: 'ส่งแล้ว',
     iou_edit_friend: 'เปลี่ยนเพื่อน',
@@ -1890,6 +1892,7 @@ const I18N = {
     rt_test_sent: 'Test sent — watching for event…',
     rt_test_ok: 'Realtime is delivering!',
     rt_test_slow: 'Realtime slow/intermittent — auto-refresh covers it',
+    rt_iou_declined: 'IOU request declined',
     iou_resend: 'Send again',
     iou_resent: 'Sent again',
     iou_edit_friend: 'Change friend',
@@ -5592,6 +5595,27 @@ function Paruay() {
         shared_responded_at: new Date().toISOString()
       }).eq('id', item.dbId);
       if (error) throw error;
+
+      // v3.4.24 — notify the initiator that their request was declined so they
+      // get a toast + inbox entry (and can use the resend/edit/delete buttons
+      // already on their declined IOU row in v3.4.20).
+      try {
+        await supabase.rpc('send_friend_notification', {
+          p_recipient: item.sharedInitiator,
+          p_type: 'iou_declined',
+          p_body: '',
+          p_iou_id: typeof item.dbId === 'string' && item.dbId.length === 36 ? item.dbId : null,
+          p_metadata: {
+            amount: item.amount,
+            note: item.note,
+            date: item.date,
+            decliner_name: currentUser.name || ''
+          }
+        });
+      } catch (notifErr) {
+        // Notification is best-effort; don't fail the decline if it errors
+        console.warn('decline notification failed', notifErr);
+      }
       loadIOUInbox(currentUser.id);
       showToast(t.iou_inbox_declined || 'Declined');
     } catch (e) {
@@ -5710,7 +5734,12 @@ function Paruay() {
     if (!n || !n.id) return;
     if (seenNotifIdsRef.current.has(n.id)) return;
     seenNotifIdsRef.current.add(n.id);
-    if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'paid_confirmed') {
+    if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'iou_declined') {
+      // v3.4.24 — counterparty declined my IOU request
+      const meta = n.metadata || {};
+      const who = meta.decliner_name || n.senderProfile && (n.senderProfile.full_name || n.senderProfile.username) || '';
+      showToast('✗ ' + (t.rt_iou_declined || 'IOU declined') + (who ? ` (${who})` : ''));
+    } else if (n.type === 'paid_confirmed') {
       showToast(t.rt_paid_confirmed || 'Settled');
       try {
         const meta = n.metadata || {};
@@ -5810,6 +5839,24 @@ function Paruay() {
         ascending: false
       });
       if (iouRows) setIOUs(iouRows.map(iouFromRow));
+
+      // v3.4.24 — 5) Transactions — keeps the "Total balance" card fresh after
+      // a counterparty confirms/settles on another device. RLS already scopes
+      // transactions to the owner, so we don't need an explicit user_id filter.
+      const {
+        data: txRows
+      } = await supabase.from('transactions').select('*').order('date', {
+        ascending: false
+      }).order('created_at', {
+        ascending: false
+      });
+      if (txRows) {
+        const serverTxs = txRows.map(txFromRow);
+        // Merge: keep any LOCAL-only txs that haven't synced yet (avoids wiping
+        // an income/expense we just persisted before the upsert round-trips).
+        const localOnly = transactionsRef.current.filter(lt => !serverTxs.some(st => st.id === lt.id));
+        setTransactions([...localOnly, ...serverTxs]);
+      }
     } catch (e) {
       console.error('[pollForUpdates]', e);
     } finally {
@@ -5923,26 +5970,30 @@ function Paruay() {
         p_iou_id: notif.iou_id,
         p_metadata: notif.metadata || {}
       });
-      // v3.4.12 — debtor (me) confirmed I paid back → add EXPENSE tx to my books
+      // v3.4.24 — when I confirm the counterparty's mark-paid, add MY cash tx
+      // with the direction implied by MY IOU sign:
+      //   • myRow.amount > 0  →  I'm the creditor  →  +INCOME (got money back)
+      //   • myRow.amount < 0  →  I'm the debtor    →  +EXPENSE (paid friend)
+      // Previous code hardcoded 'expense' which moved the creditor's balance the
+      // WRONG direction after they confirmed receipt.
       const meta = notif.metadata || {};
       const amt = meta.amount || 0;
-      // Find my matching IOU row (debtor side, counterparty=sender of paid_notify which is creditor)
       const myRow = ious.find(i => i.counterpartyUserId === notif.sender_id && i.sharedStatus === 'accepted');
-      // Idempotency: don't re-add if already settled this IOU
       const alreadySettled = myRow && transactions.some(tx => tx.iouId === myRow.id);
       if (amt > 0 && myRow && !alreadySettled) {
-        const expenseTx = {
+        const isBorrow = myRow.amount < 0; // I owe them
+        const settleTx = {
           id: uuid(),
-          type: 'expense',
+          type: isBorrow ? 'expense' : 'income',
           amount: amt,
           categoryLabel: myRow.friendName || '',
           categoryEmoji: '🤝',
-          note: `${t.paid_to_friend || 'จ่ายคืน'} ${myRow.friendName || ''}`,
+          note: isBorrow ? `${t.paid_to_friend || 'จ่ายคืน'} ${myRow.friendName || ''}` : `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
           date: todayStr(),
           createdAt: new Date().toISOString(),
           iouId: myRow.id
         };
-        persist([expenseTx, ...transactions]);
+        persist([settleTx, ...transactions]);
       }
       // Reload everything
       loadNotifications(currentUser.id);
