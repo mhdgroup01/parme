@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.19';
+const APP_VERSION = 'v3.4.20';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -953,6 +953,14 @@ const I18N = {
     iou_status_pending: '⏳ ລໍຢືນຢັນ',
     iou_status_accepted: '✓ ຍອມຮັບແລ້ວ',
     iou_status_declined: '✗ ຖືກປະຕິເສດ',
+    iou_resend: 'ສົ່ງໃໝ່',
+    iou_resent: 'ສົ່ງແລ້ວ',
+    iou_edit_friend: 'ປ່ຽນໝູ່',
+    iou_edit_friend_hint: 'ເລືອກໝູ່ໃໝ່ເພື່ອສົ່ງຄຳຂໍນີ້:',
+    iou_delete_title: 'ລຶບ IOU ນີ້?',
+    iou_delete_hint: 'ຈະລຶບ IOU ນີ້ອອກຈາກລາຍການຖາວອນ.',
+    iou_deleted: 'ລຶບແລ້ວ',
+    no_friends: 'ບໍ່ມີໝູ່ອື່ນ',
     iou_status_settled: '✓ ຊຳລະແລ້ວ',
     iou_inbox: '📬 ກ່ອງຄຳຂໍ IOU',
     iou_inbox_title: '📬 ກ່ອງຄຳຂໍ IOU',
@@ -1406,6 +1414,14 @@ const I18N = {
     iou_status_pending: '⏳ รอยืนยัน',
     iou_status_accepted: '✓ ยอมรับแล้ว',
     iou_status_declined: '✗ ถูกปฏิเสธ',
+    iou_resend: 'ส่งใหม่',
+    iou_resent: 'ส่งแล้ว',
+    iou_edit_friend: 'เปลี่ยนเพื่อน',
+    iou_edit_friend_hint: 'เลือกเพื่อนคนใหม่เพื่อส่งคำขอนี้:',
+    iou_delete_title: 'ลบ IOU นี้?',
+    iou_delete_hint: 'จะลบ IOU นี้ออกจากรายการอย่างถาวร',
+    iou_deleted: 'ลบแล้ว',
+    no_friends: 'ไม่มีเพื่อนคนอื่น',
     iou_status_settled: '✓ ชำระแล้ว',
     iou_inbox: '📬 กล่องคำขอ IOU',
     iou_inbox_title: '📬 กล่องคำขอ IOU',
@@ -1859,6 +1875,14 @@ const I18N = {
     iou_status_pending: '⏳ Pending',
     iou_status_accepted: '✓ Accepted',
     iou_status_declined: '✗ Declined',
+    iou_resend: 'Send again',
+    iou_resent: 'Sent again',
+    iou_edit_friend: 'Change friend',
+    iou_edit_friend_hint: 'Pick a new friend to re-send this IOU to:',
+    iou_delete_title: 'Delete this IOU?',
+    iou_delete_hint: 'This will permanently remove the IOU from your list.',
+    iou_deleted: 'Deleted',
+    no_friends: 'No other friends available',
     iou_status_settled: '✓ Settled',
     iou_inbox: '📬 IOU Inbox',
     iou_inbox_title: '📬 IOU Inbox',
@@ -5141,6 +5165,9 @@ function Paruay() {
   const [photoDataUrls, setPhotoDataUrls] = useState([]);
   const [viewingPhotos, setViewingPhotos] = useState(null); // { photos: [], index: 0 }
   const [confirmPaidIOU, setConfirmPaidIOU] = useState(null); // IOU pending payment confirmation
+  // v3.4.20 — declined-IOU recovery actions
+  const [editFriendIOU, setEditFriendIOU] = useState(null); // open friend picker to reassign
+  const [confirmDeleteIOU, setConfirmDeleteIOU] = useState(null); // delete confirmation
   const [loans, setLoans] = useState(loadLoans);
   const [showLendModal, setShowLendModal] = useState(false);
   const [showLoansList, setShowLoansList] = useState(false);
@@ -5521,6 +5548,76 @@ function Paruay() {
       showToast(t.iou_inbox_declined || 'Declined');
     } catch (e) {
       console.error('declineIOURequest', e);
+      showToast('Error: ' + (e.message || e));
+    }
+  };
+
+  // v3.4.20 — Re-send a previously declined IOU request (flip back to pending)
+  const resendIOURequest = async iou => {
+    if (!supabase || !currentUser) return;
+    try {
+      const {
+        error
+      } = await supabase.from('ious').update({
+        shared_status: 'pending',
+        shared_responded_at: null
+      }).eq('id', iou.id).eq('user_id', currentUser.id);
+      if (error) throw error;
+      // Update locally
+      setIOUs(prev => prev.map(i => i.id === iou.id ? {
+        ...i,
+        sharedStatus: 'pending'
+      } : i));
+      showToast(t.iou_resent || 'Sent again');
+    } catch (e) {
+      console.error('resendIOURequest', e);
+      showToast('Error: ' + (e.message || e));
+    }
+  };
+
+  // v3.4.20 — Reassign a declined IOU to a different friend (re-send to new person)
+  const reassignIOUFriend = async (iou, newFriend) => {
+    if (!supabase || !currentUser || !newFriend) return;
+    try {
+      const update = {
+        friend_id: newFriend.id,
+        friend_name: newFriend.full_name || newFriend.username || iou.friendName,
+        counterparty_user_id: newFriend.id,
+        shared_status: 'pending',
+        shared_responded_at: null
+      };
+      const {
+        error
+      } = await supabase.from('ious').update(update).eq('id', iou.id).eq('user_id', currentUser.id);
+      if (error) throw error;
+      setIOUs(prev => prev.map(i => i.id === iou.id ? {
+        ...i,
+        friendId: newFriend.id,
+        friendName: update.friend_name,
+        counterpartyUserId: newFriend.id,
+        sharedStatus: 'pending'
+      } : i));
+      setEditFriendIOU(null);
+      showToast(t.iou_resent || 'Sent again');
+    } catch (e) {
+      console.error('reassignIOUFriend', e);
+      showToast('Error: ' + (e.message || e));
+    }
+  };
+
+  // v3.4.20 — Delete an IOU completely (used when declined and creator wants to drop it)
+  const deleteIOU = async iou => {
+    if (!supabase || !currentUser) return;
+    try {
+      const {
+        error
+      } = await supabase.from('ious').delete().eq('id', iou.id).eq('user_id', currentUser.id);
+      if (error) throw error;
+      setIOUs(prev => prev.filter(i => i.id !== iou.id));
+      setConfirmDeleteIOU(null);
+      showToast(t.iou_deleted || 'Deleted');
+    } catch (e) {
+      console.error('deleteIOU', e);
       showToast('Error: ' + (e.message || e));
     }
   };
@@ -16335,7 +16432,61 @@ function Paruay() {
               flexShrink: 0,
               fontSize: 13
             }
-          }, "\uD83D\uDD14"), /*#__PURE__*/React.createElement("button", {
+          }, "\uD83D\uDD14"), iou.sharedStatus === 'declined' ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+            onClick: e => {
+              e.stopPropagation();
+              resendIOURequest(iou);
+            },
+            title: t.iou_resend || 'Send again',
+            style: {
+              width: 30,
+              height: 30,
+              borderRadius: 9,
+              background: '#1B4332',
+              color: '#F5EFE0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              fontSize: 14
+            }
+          }, "\u21BB"), /*#__PURE__*/React.createElement("button", {
+            onClick: e => {
+              e.stopPropagation();
+              setEditFriendIOU(iou);
+            },
+            title: t.iou_edit_friend || 'Change friend',
+            style: {
+              width: 30,
+              height: 30,
+              borderRadius: 9,
+              background: '#D4A574',
+              color: '#3D2817',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              fontSize: 13
+            }
+          }, "\u270F\uFE0F"), /*#__PURE__*/React.createElement("button", {
+            onClick: e => {
+              e.stopPropagation();
+              setConfirmDeleteIOU(iou);
+            },
+            title: t.delete || 'Delete',
+            style: {
+              width: 30,
+              height: 30,
+              borderRadius: 9,
+              background: '#AA3C28',
+              color: '#F5EFE0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              fontSize: 13
+            }
+          }, "\uD83D\uDDD1")) : /*#__PURE__*/React.createElement("button", {
             onClick: e => {
               e.stopPropagation();
               setConfirmPaidIOU(iou);
@@ -18596,7 +18747,254 @@ function Paruay() {
     }
   }, /*#__PURE__*/React.createElement(Check, {
     size: 16
-  }), " ", t.confirm_btn)))), viewingPhotos && (() => {
+  }), " ", t.confirm_btn)))), editFriendIOU && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setEditFriendIOU(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(42,31,26,0.5)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      zIndex: 70,
+      padding: 16,
+      animation: 'fadeUp 0.2s ease-out'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    className: "scroll-hide",
+    style: {
+      background: '#F5EFE0',
+      borderRadius: 24,
+      padding: 24,
+      width: '100%',
+      maxWidth: 420,
+      maxHeight: '70vh',
+      overflowY: 'auto',
+      paddingBottom: 'max(24px, env(safe-area-inset-bottom))'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "display " + langClass,
+    style: {
+      margin: 0,
+      fontSize: 18,
+      fontWeight: 700,
+      color: '#1B4332'
+    }
+  }, "\u270F\uFE0F ", t.iou_edit_friend || 'Change friend'), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setEditFriendIOU(null),
+    style: {
+      background: 'none',
+      padding: 4
+    }
+  }, /*#__PURE__*/React.createElement(X, {
+    size: 20,
+    color: "#7F5539"
+  }))), /*#__PURE__*/React.createElement("p", {
+    className: langClass,
+    style: {
+      fontSize: 13,
+      color: '#7F5539',
+      marginBottom: 14
+    }
+  }, t.iou_edit_friend_hint || 'Pick a new friend to re-send this IOU to:'), (() => {
+    const validFriends = (friends || []).filter(f => f && f.id && f.id !== currentUser?.id && f.id !== editFriendIOU.friendId);
+    if (validFriends.length === 0) {
+      return /*#__PURE__*/React.createElement("div", {
+        className: langClass,
+        style: {
+          textAlign: 'center',
+          padding: '24px 12px',
+          color: '#A89580',
+          fontSize: 13
+        }
+      }, t.no_friends || 'No other friends available');
+    }
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8
+      }
+    }, validFriends.map(f => /*#__PURE__*/React.createElement("button", {
+      key: f.id,
+      onClick: () => reassignIOUFriend(editFriendIOU, f),
+      className: "tap-card " + langClass,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 14px',
+        borderRadius: 12,
+        background: '#FBF6E9',
+        border: '1px solid rgba(127,85,57,0.15)',
+        textAlign: 'left',
+        cursor: 'pointer'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 36,
+        height: 36,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
+        color: '#F5EFE0',
+        fontWeight: 800,
+        fontSize: 14,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0
+      }
+    }, (f.full_name || f.username || '?').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 14,
+        fontWeight: 700,
+        color: '#1B4332',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      }
+    }, f.full_name || f.username || '?'), f.username && f.full_name && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: '#7F5539'
+      }
+    }, "@", f.username)))));
+  })())), confirmDeleteIOU && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setConfirmDeleteIOU(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(42,31,26,0.5)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 70,
+      padding: 16,
+      animation: 'fadeUp 0.2s ease-out'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: '#F5EFE0',
+      borderRadius: 24,
+      padding: 24,
+      width: '100%',
+      maxWidth: 400,
+      paddingBottom: 'max(24px, env(safe-area-inset-bottom))'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 38,
+      marginBottom: 6
+    }
+  }, "\uD83D\uDDD1\uFE0F"), /*#__PURE__*/React.createElement("h3", {
+    className: "display " + langClass,
+    style: {
+      margin: 0,
+      fontSize: 18,
+      fontWeight: 700,
+      color: '#AA3C28'
+    }
+  }, t.iou_delete_title || 'Delete this IOU?'), /*#__PURE__*/React.createElement("p", {
+    className: langClass,
+    style: {
+      fontSize: 13,
+      color: '#7F5539',
+      marginTop: 8
+    }
+  }, t.iou_delete_hint || 'This will permanently remove the IOU from your list.')), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      padding: 12,
+      background: '#FBF6E9',
+      borderRadius: 12,
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 20
+    }
+  }, confirmDeleteIOU.emoji || '🤝'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontWeight: 700,
+      fontSize: 14,
+      color: '#2A1F1A',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, confirmDeleteIOU.friendName), /*#__PURE__*/React.createElement("div", {
+    className: langClass,
+    style: {
+      fontSize: 11,
+      color: '#A89580',
+      marginTop: 2
+    }
+  }, confirmDeleteIOU.note, " \xB7 ", confirmDeleteIOU.date)), /*#__PURE__*/React.createElement("div", {
+    className: "display",
+    style: {
+      fontSize: 17,
+      fontWeight: 700,
+      color: '#AA3C28',
+      whiteSpace: 'nowrap'
+    }
+  }, confirmDeleteIOU.amount < 0 ? '-' : '', "\u20AD ", fmt(Math.abs(confirmDeleteIOU.amount)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmDeleteIOU(null),
+    className: langClass,
+    style: {
+      padding: '12px',
+      borderRadius: 12,
+      background: 'transparent',
+      color: '#7F5539',
+      border: '1.5px solid rgba(127,85,57,0.3)',
+      fontSize: 14,
+      fontWeight: 600
+    }
+  }, t.cancel_btn), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteIOU(confirmDeleteIOU),
+    className: langClass,
+    style: {
+      padding: '12px',
+      borderRadius: 12,
+      background: '#AA3C28',
+      color: '#F5EFE0',
+      fontSize: 14,
+      fontWeight: 700
+    }
+  }, t.delete || 'Delete')))), viewingPhotos && (() => {
     const {
       photos,
       index
