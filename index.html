@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.14';
+const APP_VERSION = 'v3.4.15';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5590,6 +5590,7 @@ function Paruay() {
       error: 'Not shared'
     };
     try {
+      // v3.4.15 — only sends the paid_notify; status update is handled by markIOUPaid.
       const {
         error
       } = await supabase.rpc('send_friend_notification', {
@@ -5606,20 +5607,6 @@ function Paruay() {
       if (error) return {
         error: error.message
       };
-      // v3.4.14 — use a partial UPDATE on the DB directly, so we DON'T overwrite
-      // shared_status (which might have changed via RPC but not yet sync'd locally).
-      // The mirror flips to settled when the debtor confirms via confirmIOUSettled().
-      const nowIso = new Date().toISOString();
-      await supabase.from('ious').update({
-        status: 'paid',
-        paid_at: nowIso
-      }).eq('id', iou.id);
-      // Update local state via setIOUs only (no full upsert round-trip)
-      setIOUs(prev => prev.map(x => x.id === iou.id ? {
-        ...x,
-        status: 'paid',
-        paidAt: nowIso
-      } : x));
       return {
         ok: true
       };
@@ -6128,7 +6115,8 @@ function Paruay() {
       const reconciledTxs = [...txs];
       let reconciledCount = 0;
       iouR.forEach(iou => {
-        const isSettled = iou.sharedStatus === 'settled' || !iou.counterpartyUserId && iou.status === 'paid';
+        // v3.4.15 — any paid OR settled IOU should have a matching cash transaction
+        const isSettled = iou.sharedStatus === 'settled' || iou.status === 'paid';
         if (!isSettled) return;
         const hasSettlementTx = reconciledTxs.some(tx => tx.iouId === iou.id);
         if (hasSettlementTx) return;
@@ -7991,74 +7979,66 @@ function Paruay() {
     }
   };
   const markIOUPaid = async iou => {
-    // v3.4.12 — comprehensive settlement: always create a cash transaction
-    // when IOU is marked paid, so balance reflects reality.
-    //   • Creditor (amount > 0) marks paid → ADD INCOME (got money back)
-    //   • Debtor   (amount < 0) marks paid → ADD EXPENSE (paid friend)
-    // Idempotency: skip if a tx with this iouId already exists.
-    const isBorrow = iou.amount < 0; // I owe — not the creditor
+    // v3.4.15 — UNIFIED settlement: when YOU mark your side paid, immediately add the
+    // cash transaction (income if you're creditor, expense if you're debtor) — do NOT
+    // depend on the bilateral confirm/realtime flow (which can miss events).
+    //   • Creditor (amount > 0) marks paid → +INCOME (got money back)
+    //   • Debtor   (amount < 0) marks paid → +EXPENSE (paid friend)
+    // For shared IOUs we ALSO notify the counterparty so their books can sync, but the
+    // cash movement is recorded locally right now regardless.
+    const isBorrow = iou.amount < 0;
     const isShared = !!iou.counterpartyUserId && iou.sharedStatus === 'accepted';
     const absAmount = Math.abs(iou.amount);
-
-    // Build the settlement transaction (income for creditor, expense for debtor)
+    const nowIso = new Date().toISOString();
     const buildSettlementTx = type => ({
       id: uuid(),
       type,
-      // 'income' or 'expense'
       amount: absAmount,
       categoryLabel: iou.friendName || '',
       categoryEmoji: '🤝',
       note: type === 'income' ? `${t.back_from || 'รับคืนจาก'} ${iou.friendName || ''}` : `${t.paid_to_friend || 'จ่ายคืน'} ${iou.friendName || ''}`,
       date: todayStr(),
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
       iouId: iou.id
     });
-
-    // Idempotency check: don't re-add if we already settled this IOU
     const alreadySettled = transactions.some(tx => tx.iouId === iou.id);
-    if (isShared && !isBorrow) {
-      // ── Shared CREDITOR ── Send paid_notify, mark locally as paid pending bilateral confirm.
-      // Do NOT add income tx yet — it will be added when the paid_confirmed notification arrives
-      // from the debtor (handled in realtime listener below).
-      const result = await notifyIOUPaidShared(iou);
-      if (result.error) {
-        showToast('Error: ' + result.error);
+
+    // 1) Mark IOU paid in DB via partial UPDATE (keeps shared_status intact)
+    if (supabase && currentUser) {
+      try {
+        await supabase.from('ious').update({
+          status: 'paid',
+          paid_at: nowIso
+        }).eq('id', iou.id);
+      } catch (e) {
+        console.error('markIOUPaid update failed', e);
+        showToast('⚠️ Mark paid error: ' + (e.message || ''));
         return;
       }
-      showToast(t.iou_paid_notify_sent || 'Confirmation sent');
+    }
+
+    // 2) Update local IOU state
+    const nextIOUs = ious.map(x => x.id === iou.id ? {
+      ...x,
+      status: 'paid',
+      paidAt: nowIso
+    } : x);
+    setIOUs(nextIOUs);
+    saveIOUsStore(nextIOUs);
+
+    // 3) Add the cash transaction immediately (income/expense based on direction)
+    if (!alreadySettled) {
+      const tx = buildSettlementTx(isBorrow ? 'expense' : 'income');
+      persist([tx, ...transactions]);
+    }
+
+    // 4) If shared, notify the counterparty so their UI can reflect the settlement
+    if (isShared) {
+      try {
+        await notifyIOUPaidShared(iou);
+      } catch (_) {}
+      showToast(t.iou_paid_notify_sent || t.toast_paid);
     } else {
-      // ── Local mark (legacy / unlinked / debtor side) ──
-      // v3.4.14 — use partial UPDATE for status only, so shared_status / shared_initiator etc.
-      // are not accidentally overwritten with stale local values.
-      const nowIso = new Date().toISOString();
-      if (supabase && currentUser) {
-        try {
-          await supabase.from('ious').update({
-            status: 'paid',
-            paid_at: nowIso
-          }).eq('id', iou.id);
-        } catch (e) {
-          console.error('markIOUPaid update failed', e);
-          showToast('⚠️ Mark paid error: ' + (e.message || ''));
-          return;
-        }
-      }
-      // Update local state
-      setIOUs(prev => prev.map(x => x.id === iou.id ? {
-        ...x,
-        status: 'paid',
-        paidAt: nowIso
-      } : x));
-      saveIOUsStore(ious.map(x => x.id === iou.id ? {
-        ...x,
-        status: 'paid',
-        paidAt: nowIso
-      } : x));
-      // Add settlement transaction
-      if (!alreadySettled) {
-        const tx = buildSettlementTx(isBorrow ? 'expense' : 'income');
-        persist([tx, ...transactions]);
-      }
       showToast(t.iou_settled_local || t.toast_paid);
     }
   };
