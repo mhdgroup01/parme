@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.13';
+const APP_VERSION = 'v3.4.14';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5606,14 +5606,20 @@ function Paruay() {
       if (error) return {
         error: error.message
       };
-      // Local: mark THIS IOU as paid immediately (creditor side). The mirror flips to settled
-      // when the debtor confirms via confirmIOUSettled() below.
-      const updated = ious.map(x => x.id === iou.id ? {
+      // v3.4.14 — use a partial UPDATE on the DB directly, so we DON'T overwrite
+      // shared_status (which might have changed via RPC but not yet sync'd locally).
+      // The mirror flips to settled when the debtor confirms via confirmIOUSettled().
+      const nowIso = new Date().toISOString();
+      await supabase.from('ious').update({
+        status: 'paid',
+        paid_at: nowIso
+      }).eq('id', iou.id);
+      // Update local state via setIOUs only (no full upsert round-trip)
+      setIOUs(prev => prev.map(x => x.id === iou.id ? {
         ...x,
         status: 'paid',
-        paidAt: new Date().toISOString()
-      } : x);
-      persistIOUs(updated);
+        paidAt: nowIso
+      } : x));
       return {
         ok: true
       };
@@ -8022,13 +8028,33 @@ function Paruay() {
       showToast(t.iou_paid_notify_sent || 'Confirmation sent');
     } else {
       // ── Local mark (legacy / unlinked / debtor side) ──
-      // Mark paid locally + add appropriate cash tx (income or expense).
-      const updated = ious.map(x => x.id === iou.id ? {
+      // v3.4.14 — use partial UPDATE for status only, so shared_status / shared_initiator etc.
+      // are not accidentally overwritten with stale local values.
+      const nowIso = new Date().toISOString();
+      if (supabase && currentUser) {
+        try {
+          await supabase.from('ious').update({
+            status: 'paid',
+            paid_at: nowIso
+          }).eq('id', iou.id);
+        } catch (e) {
+          console.error('markIOUPaid update failed', e);
+          showToast('⚠️ Mark paid error: ' + (e.message || ''));
+          return;
+        }
+      }
+      // Update local state
+      setIOUs(prev => prev.map(x => x.id === iou.id ? {
         ...x,
         status: 'paid',
-        paidAt: new Date().toISOString()
-      } : x);
-      persistIOUs(updated);
+        paidAt: nowIso
+      } : x));
+      saveIOUsStore(ious.map(x => x.id === iou.id ? {
+        ...x,
+        status: 'paid',
+        paidAt: nowIso
+      } : x));
+      // Add settlement transaction
       if (!alreadySettled) {
         const tx = buildSettlementTx(isBorrow ? 'expense' : 'income');
         persist([tx, ...transactions]);
