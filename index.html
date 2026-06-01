@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.27';
+const APP_VERSION = 'v3.4.28';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5156,6 +5156,8 @@ function Paruay() {
   }, [rtEventCount]);
   const [rtLastEvent, setRtLastEvent] = useState(null); // { type, time, info }
   const [pollStatus, setPollStatus] = useState(null); // v3.4.26 — { time, count } last successful poll
+  const [debugLog, setDebugLog] = useState([]); // v3.4.28 — on-screen debug trail for markIOUPaid
+  const pushDebug = msg => setDebugLog(prev => [`${new Date().toLocaleTimeString()} ${msg}`, ...prev].slice(0, 8));
   const [toast, setToast] = useState('');
 
   // Add-transaction form
@@ -8611,6 +8613,7 @@ function Paruay() {
     const isShared = !!iou.counterpartyUserId && iou.sharedStatus === 'accepted';
     const absAmount = Math.abs(iou.amount);
     const nowIso = new Date().toISOString();
+    pushDebug(`markPaid id=${(iou.id || '').slice(0, 6)} amt=${iou.amount} borrow=${isBorrow}`);
     const buildSettlementTx = type => ({
       id: uuid(),
       type,
@@ -8622,7 +8625,7 @@ function Paruay() {
       createdAt: nowIso,
       iouId: iou.id
     });
-    const alreadySettled = transactions.some(tx => tx.iouId === iou.id);
+    const alreadySettled = (transactionsRef.current || transactions).some(tx => tx.iouId === iou.id);
 
     // 1) Mark IOU paid in DB via partial UPDATE (keeps shared_status intact)
     if (supabase && currentUser) {
@@ -8652,14 +8655,20 @@ function Paruay() {
     // (the `transactions` closure here can be stale if the user tapped quickly or
     // a poll just ran). This is the key fix for "balance doesn't move after ✓".
     if (alreadySettled) {
+      pushDebug(`SKIP: already has tx with iouId=${(iou.id || '').slice(0, 6)}`);
       showToast('ℹ️ ' + (t.iou_already_settled || 'Already settled'));
     } else {
       const tx = buildSettlementTx(isBorrow ? 'expense' : 'income');
-      // Update React state from the latest array via ref, then persist that array.
-      const base = transactionsRef.current || transactions;
-      const nextTxs = [tx, ...base];
-      setTransactions(nextTxs);
-      saveTxStore(nextTxs);
+      pushDebug(`ADD ${tx.type} ₭${tx.amount} → set state`);
+      // v3.4.28 — functional updater GUARANTEES we append to the latest array and
+      // forces a new reference → useMemo([transactions]) recomputes → balance moves.
+      setTransactions(prev => {
+        // guard against a double (e.g. realtime echo already added it)
+        if (prev.some(x => x.iouId === iou.id)) return prev;
+        const next = [tx, ...prev];
+        saveTxStore(next);
+        return next;
+      });
       // Sync to server (don't let a slow upsert block the UI update above)
       if (supabase && currentUser) {
         try {
@@ -8667,9 +8676,13 @@ function Paruay() {
           const {
             error
           } = await supabase.from('transactions').upsert([row]);
-          if (error) console.error('settlement tx upsert', error);
+          if (error) {
+            console.error('settlement tx upsert', error);
+            pushDebug(`upsert ERR: ${error.message}`);
+          } else pushDebug(`upsert OK`);
         } catch (e) {
           console.error('settlement tx upsert', e);
+          pushDebug(`upsert EXC`);
         }
       }
     }
@@ -13099,7 +13112,27 @@ function Paruay() {
         border: 'none',
         alignSelf: 'flex-start'
       }
-    }, "\uD83D\uDD04 ", t.rt_poll_now || 'Refresh now'), /*#__PURE__*/React.createElement("button", {
+    }, "\uD83D\uDD04 ", t.rt_poll_now || 'Refresh now'), debugLog.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 8,
+        padding: 8,
+        borderRadius: 8,
+        background: '#2A1F1A',
+        color: '#9FE5C5',
+        fontSize: 9,
+        fontFamily: 'monospace',
+        lineHeight: 1.5,
+        maxHeight: 140,
+        overflowY: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: '#D4A574',
+        marginBottom: 4
+      }
+    }, "debug (newest first):"), debugLog.map((line, i) => /*#__PURE__*/React.createElement("div", {
+      key: i
+    }, line))), /*#__PURE__*/React.createElement("button", {
       onClick: async () => {
         if (!supabase || !currentUser) return;
         try {
