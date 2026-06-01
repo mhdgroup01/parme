@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.31';
+const APP_VERSION = 'v3.4.32';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5755,27 +5755,33 @@ function Paruay() {
       showToast(t.rt_paid_confirmed || 'Settled');
       try {
         const meta = n.metadata || {};
-        const amt = meta.amount || 0;
+        // v3.4.32 — magnitude only; direction from my row's sign.
+        const amtAbs = Math.abs(meta.amount || 0);
         const latestIous = iousRef.current || [];
-        const latestTxs = transactionsRef.current || [];
-        const myRow = latestIous.find(i => i.id === n.iou_id);
-        const alreadySettled = myRow && latestTxs.some(tx => tx.iouId === myRow.id);
-        if (amt > 0 && myRow && !alreadySettled) {
-          const incomeTx = {
+        let myRow = latestIous.find(i => i.id === n.iou_id);
+        if (!myRow) myRow = latestIous.find(i => i.counterpartyUserId === n.sender_id);
+        if (amtAbs > 0 && myRow) {
+          const isBorrow = myRow.amount < 0;
+          const settleTx = {
             id: uuid(),
-            type: 'income',
-            amount: amt,
+            type: isBorrow ? 'expense' : 'income',
+            amount: amtAbs,
             categoryLabel: myRow.friendName || '',
             categoryEmoji: '🤝',
-            note: `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
+            note: isBorrow ? `${t.paid_to_friend || 'จ่ายคืน'} ${myRow.friendName || ''}` : `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
             date: todayStr(),
             createdAt: new Date().toISOString(),
             iouId: myRow.id
           };
-          persist([incomeTx, ...latestTxs]);
+          setTransactions(prev => {
+            if (prev.some(tx => tx.iouId === myRow.id)) return prev;
+            const next = [settleTx, ...prev];
+            saveTxStore(next);
+            return next;
+          });
         }
       } catch (e) {
-        console.error('[processIncomingNotif] income tx failed', e);
+        console.error('[processIncomingNotif] settle tx failed', e);
       }
     }
     // 'message' type → no toast (user opens inbox to see it)
@@ -6041,19 +6047,22 @@ function Paruay() {
       // income entirely → balance never moved. The cash movement is the important
       // part for the user; the RPC is just status bookkeeping.
       const meta = notif.metadata || {};
-      const amt = meta.amount || 0;
+      // v3.4.32 — the metadata amount carries the SENDER's sign (debtor = negative),
+      // so never gate on amt>0. Use the magnitude for the cash value and take the
+      // direction purely from MY row's sign (sign>0 = I'm creditor → income).
+      const amtAbs = Math.abs(meta.amount || 0);
       const latestIous = iousRef.current || ious;
       // Find MY row: prefer one I own with this counterparty; the notif.iou_id may
       // point at the OTHER party's row (RPC requires me to be its counterparty).
       let myRow = latestIous.find(i => i.counterpartyUserId === notif.sender_id && (i.sharedStatus === 'accepted' || i.sharedStatus === 'settled'));
       if (!myRow) myRow = latestIous.find(i => i.id === notif.iou_id);
-      pushDebug(`confirm amt=${amt} myRow=${myRow ? (myRow.id || '').slice(0, 6) : 'NONE'} sign=${myRow ? myRow.amount : '?'}`);
-      if (amt > 0 && myRow) {
+      pushDebug(`confirm amtAbs=${amtAbs} myRow=${myRow ? (myRow.id || '').slice(0, 6) : 'NONE'} sign=${myRow ? myRow.amount : '?'}`);
+      if (amtAbs > 0 && myRow) {
         const isBorrow = myRow.amount < 0;
         const settleTx = {
           id: uuid(),
           type: isBorrow ? 'expense' : 'income',
-          amount: amt,
+          amount: amtAbs,
           categoryLabel: myRow.friendName || '',
           categoryEmoji: '🤝',
           note: isBorrow ? `${t.paid_to_friend || 'จ่ายคืน'} ${myRow.friendName || ''}` : `${t.back_from || 'รับคืนจาก'} ${myRow.friendName || ''}`,
@@ -6068,7 +6077,7 @@ function Paruay() {
           }
           const next = [settleTx, ...prev];
           saveTxStore(next);
-          pushDebug(`confirm ADD ${settleTx.type} ₭${amt} → balance should move`);
+          pushDebug(`confirm ADD ${settleTx.type} ₭${amtAbs} → balance should move`);
           return next;
         });
         if (supabase && currentUser) {
@@ -6083,7 +6092,7 @@ function Paruay() {
           }
         }
       } else {
-        pushDebug(`confirm NO-TX: amt=${amt} hasRow=${!!myRow}`);
+        pushDebug(`confirm NO-TX: amtAbs=${amtAbs} hasRow=${!!myRow}`);
       }
 
       // Now the bookkeeping: flip status via RPC (best-effort, won't block the cash tx)
