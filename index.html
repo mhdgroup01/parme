@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.8';
+const APP_VERSION = 'v3.4.9';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -6870,13 +6870,16 @@ function Paruay() {
     showToast(I18N[sLang].toast_settings);
   };
   const persistIOUs = async next => {
+    const previous = ious; // snapshot before mutation, for rollback
     setIOUs(next);
     saveIOUsStore(next);
-    if (!supabase || !currentUser) return;
+    if (!supabase || !currentUser) return {
+      ok: true
+    };
     try {
-      const oldMap = new Map(ious.map(i => [i.id, i]));
+      const oldMap = new Map(previous.map(i => [i.id, i]));
       const newMap = new Map(next.map(i => [i.id, i]));
-      const toDelete = ious.filter(i => !newMap.has(i.id)).map(i => i.id);
+      const toDelete = previous.filter(i => !newMap.has(i.id)).map(i => i.id);
       const toUpsert = next.filter(i => {
         const o = oldMap.get(i.id);
         return !o || JSON.stringify(o) !== JSON.stringify(i);
@@ -6887,19 +6890,44 @@ function Paruay() {
         } = await supabase.from('ious').delete().in('id', toDelete);
         if (delErr) {
           console.error('ious delete', delErr);
-          showToast('Delete IOU error: ' + (delErr.message || ''));
+          showToast('⚠️ Delete IOU error: ' + (delErr.message || ''));
+          // Revert state
+          setIOUs(previous);
+          saveIOUsStore(previous);
+          return {
+            ok: false,
+            error: delErr
+          };
         }
       }
       if (toUpsert.length > 0) {
-        const rows = toUpsert.map(i => iouToRow(i, currentUser.id));
-        const {
-          error
-        } = await supabase.from('ious').upsert(rows);
-        if (error) {
-          console.error('ious upsert', error, 'rows:', rows);
-          // v3.4.5 — surface error to user so silent DB failures don't make IOUs vanish
-          showToast('⚠️ IOU save FAILED: ' + (error.message || error.code || 'unknown'));
-          return; // Don't log activity on failure
+        // v3.4.9 — retry once on transient errors (network blip, stale auth token)
+        let lastError = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const rows = toUpsert.map(i => iouToRow(i, currentUser.id));
+          const {
+            error
+          } = await supabase.from('ious').upsert(rows);
+          if (!error) {
+            lastError = null;
+            break;
+          }
+          lastError = error;
+          console.warn('[persistIOUs] upsert attempt', attempt + 1, 'failed:', error);
+          if (attempt === 0) {
+            await new Promise(r => setTimeout(r, 600));
+          }
+        }
+        if (lastError) {
+          console.error('ious upsert', lastError, 'rows:', toUpsert);
+          showToast('⚠️ IOU save FAILED: ' + (lastError.message || lastError.code || 'unknown'));
+          // v3.4.9 — REVERT local state so the bill doesn't appear "saved" while DB is empty
+          setIOUs(previous);
+          saveIOUsStore(previous);
+          return {
+            ok: false,
+            error: lastError
+          };
         }
         // v2.4.0 — log only new IOUs
         const newOnly = toUpsert.filter(i => !oldMap.has(i.id));
@@ -6909,9 +6937,18 @@ function Paruay() {
           });
         }
       }
+      return {
+        ok: true
+      };
     } catch (e) {
       console.error('persist ious', e);
       showToast('⚠️ IOU save error: ' + (e.message || String(e)));
+      setIOUs(previous);
+      saveIOUsStore(previous);
+      return {
+        ok: false,
+        error: e
+      };
     }
   };
 
@@ -7892,7 +7929,7 @@ function Paruay() {
   const removePhotoAt = idx => {
     setPhotoDataUrls(prev => prev.filter((_, i) => i !== idx));
   };
-  const submit = () => {
+  const submit = async () => {
     const num = parseAmount(amount);
     if (!num || num <= 0) return;
     const catKey = modal === 'split' ? 'expense' : modal;
@@ -7978,10 +8015,20 @@ function Paruay() {
           sharedGroupId: isLinked ? sharedGroupId : null
         });
       });
-      persistIOUs([...newIOUs, ...ious]);
+      persistIOUs([...newIOUs, ...ious]).then(result => {
+        if (result && result.ok === false) {
+          // Toast already shown by persistIOUs; modal was already closed below.
+          // User can re-open the form and try again. Data was reverted.
+        }
+      });
     }
     persist([tx, ...transactions]);
     const m = modal;
+    // v3.4.9 — small yield so persistIOUs/persist can start their async work
+    // before the modal closes (helps the "first save fails" issue feel smoother)
+    if (supabase && currentUser) {
+      await new Promise(r => setTimeout(r, 80));
+    }
     setModal(null);
     // v3.0.0 — reset the per-form flags
     setSendIOURequest(true);
@@ -15613,7 +15660,7 @@ function Paruay() {
               color: isBorrow ? '#AA3C28' : '#D4A574',
               whiteSpace: 'nowrap'
             }
-          }, isBorrow ? '-' : '', "\u20AD ", fmt(Math.abs(iou.amount))), iou.sharedStatus === 'accepted' && !isBorrow && iou.counterpartyUserId && /*#__PURE__*/React.createElement("button", {
+          }, isBorrow ? '-' : '', "\u20AD ", fmt(Math.abs(iou.amount))), iou.sharedStatus === 'accepted' && !isBorrow && iou.counterpartyUserId && currentUser && iou.counterpartyUserId !== currentUser.id && /*#__PURE__*/React.createElement("button", {
             onClick: e => {
               e.stopPropagation();
               setReminderText(t.iou_remind_placeholder || '');
