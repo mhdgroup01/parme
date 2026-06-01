@@ -631,7 +631,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.18';
+const APP_VERSION = 'v3.4.19';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5466,7 +5466,9 @@ function Paruay() {
       // on the ious table (that's only on transactions, as a FK).
       const mirrorRow = {
         user_id: currentUser.id,
-        tx_id: null,
+        // v3.4.19 — copy tx_id from original IOU so the mirror groups together
+        // with the same bill on the recipient's side (grouping is by txId)
+        tx_id: item.txId || null,
         friend_id: item.sharedInitiator,
         friend_name: item.initiatorProfile.full_name || item.initiatorProfile.username || '?',
         // Negative = I owe them
@@ -7082,7 +7084,8 @@ function Paruay() {
   // Generate shareable text summary of a bill (supports new + old format)
   const generateBillText = txId => {
     let tx = transactions.find(x => x.id === txId);
-    const billIOUs = ious.filter(i => i.txId === txId);
+    // v3.4.19 — match IOUs by txId OR sharedGroupId OR iou.id (mirrors may have tx_id=null)
+    const billIOUs = ious.filter(i => i.txId === txId || i.sharedGroupId === txId || i.id === txId);
     // v3.4.18 — synthetic mode (recipient side has no tx)
     if (!tx) {
       if (billIOUs.length === 0) return '';
@@ -7157,7 +7160,8 @@ function Paruay() {
   // Generate a PNG image of the bill using Canvas
   const drawBillImage = async txId => {
     let tx = transactions.find(x => x.id === txId);
-    const billIOUs = ious.filter(i => i.txId === txId);
+    // v3.4.19 — match IOUs by txId OR sharedGroupId OR iou.id (mirrors may have tx_id=null)
+    const billIOUs = ious.filter(i => i.txId === txId || i.sharedGroupId === txId || i.id === txId);
     // v3.4.18 — synthetic mode: if I'm the recipient/mirror side and don't have the
     // original transaction, build a minimal one from the IOU data so we can still
     // generate the bill image. The "members" section will fall back to billIOUs.
@@ -12970,7 +12974,9 @@ function Paruay() {
     }, c.icon)))));
   })(), viewingBill && (() => {
     let tx = transactions.find(x => x.id === viewingBill);
-    const billIOUs = ious.filter(i => i.txId === viewingBill);
+    // v3.4.19 — match by txId OR sharedGroupId OR iou.id (mirror IOUs may have
+    // tx_id=null but share the same sharedGroupId as the original bill)
+    const billIOUs = ious.filter(i => i.txId === viewingBill || i.sharedGroupId === viewingBill || i.id === viewingBill);
     // v3.4.16 — if tx is missing (I'm the recipient/mirror side and never had the
     // original transaction), synthesize a minimal bill from the IOU data so the
     // recipient can still view + save the bill image.
@@ -16130,15 +16136,20 @@ function Paruay() {
         fontSize: 14
       }
     }, t.no_ious)) : (() => {
-      // Group pending IOUs by txId, preserving order
+      // Group pending IOUs by txId, with fallback to sharedGroupId or iou.id
+      // v3.4.19 — legacy mirror IOUs have tx_id=null; using sharedGroupId as
+      // fallback ensures they still group as a bill and have a real key for
+      // setViewingBill(...) so the bill modal opens correctly.
+      const billKey = iou => iou.txId || iou.sharedGroupId || iou.id;
       const groupMap = new Map();
       const txOrder = [];
       pending.forEach(iou => {
-        if (!groupMap.has(iou.txId)) {
-          groupMap.set(iou.txId, []);
-          txOrder.push(iou.txId);
+        const k = billKey(iou);
+        if (!groupMap.has(k)) {
+          groupMap.set(k, []);
+          txOrder.push(k);
         }
-        groupMap.get(iou.txId).push(iou);
+        groupMap.get(k).push(iou);
       });
       return /*#__PURE__*/React.createElement("div", {
         style: {
