@@ -620,7 +620,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.1';
+const APP_VERSION = 'v3.4.2';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -6178,6 +6178,7 @@ function Paruay() {
       table: 'ious',
       filter: `counterparty_user_id=eq.${userId}`
     }, payload => {
+      console.log('[Paruay Realtime] 📬 IOU INSERT event', payload.new);
       // Only toast for pending requests (not mirrors created by acceptIOURequest)
       const row = payload.new;
       if (row && row.shared_status === 'pending') {
@@ -6232,13 +6233,26 @@ function Paruay() {
       table: 'friend_notifications',
       filter: `recipient_id=eq.${userId}`
     }, payload => {
+      console.log('[Paruay Realtime] 🔔 Notification INSERT event', payload.new);
       loadNotifications(userId);
       const n = payload.new;
       if (!n) return;
       if (n.type === 'reminder') showToast(t.rt_reminder || 'Reminder');else if (n.type === 'paid_notify') showToast(t.rt_paid_notify || 'Paid notification');else if (n.type === 'paid_confirmed') showToast(t.rt_paid_confirmed || 'Settled');
       // 'message' type → no toast (user opens inbox to see it)
     });
-    channel.subscribe();
+    channel.subscribe((status, err) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('[Paruay Realtime] ✓ Inbox subscribed for user', userId);
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('[Paruay Realtime] ✗ Inbox channel ERROR:', err);
+      } else if (status === 'TIMED_OUT') {
+        console.warn('[Paruay Realtime] ⏱ Inbox subscription TIMED OUT — Realtime may not be enabled on tables. Run paruay-realtime-schema.sql.');
+      } else if (status === 'CLOSED') {
+        console.log('[Paruay Realtime] Inbox channel closed');
+      } else {
+        console.log('[Paruay Realtime] Inbox status:', status);
+      }
+    });
     return () => {
       try {
         supabase.removeChannel(channel);
@@ -6303,7 +6317,15 @@ function Paruay() {
       }
       scheduleReload();
     });
-    channel.subscribe();
+    channel.subscribe((status, err) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('[Paruay Realtime] ✓ Trip channel subscribed for trip', tripId);
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('[Paruay Realtime] ✗ Trip channel ERROR:', err);
+      } else if (status === 'TIMED_OUT') {
+        console.warn('[Paruay Realtime] ⏱ Trip subscription TIMED OUT');
+      }
+    });
     return () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       try {
