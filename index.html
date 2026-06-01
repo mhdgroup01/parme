@@ -540,6 +540,17 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
   x2: "7.01",
   y2: "7"
 }));
+const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.createElement("path", {
+  d: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+}), /*#__PURE__*/React.createElement("circle", {
+  cx: "9",
+  cy: "7",
+  r: "4"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M23 21v-2a4 4 0 0 0-3-3.87"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M16 3.13a4 4 0 0 1 0 7.75"
+}));
 
 /* ====================================================================
  * VERSION & CHANGELOG
@@ -620,7 +631,7 @@ const Tags = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.c
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.16';
+const APP_VERSION = 'v3.4.17';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -999,6 +1010,8 @@ const I18N = {
     loan_borrowed: '(ຢືມເງິນ)',
     // v3.3.0 — Trip Shared Expense
     trips_open: '🧳 ທິບກຸ່ມ',
+    trips_short: 'ທິບກຸ່ມ',
+    iou_inbox_short: 'ກ່ອງ IOU',
     trips_title: '🧳 ທິບກຸ່ມ',
     trips_active: 'ກຳລັງດຳເນີນ',
     trips_closed: 'ປິດແລ້ວ',
@@ -1450,6 +1463,8 @@ const I18N = {
     loan_borrowed: '(ยืมเงิน)',
     // v3.3.0 — Trip Shared Expense
     trips_open: '🧳 ทริปกลุ่ม',
+    trips_short: 'ทริปกลุ่ม',
+    iou_inbox_short: 'กล่อง IOU',
     trips_title: '🧳 ทริปกลุ่ม',
     trips_active: 'กำลังดำเนินอยู่',
     trips_closed: 'ปิดแล้ว',
@@ -1901,6 +1916,8 @@ const I18N = {
     loan_borrowed: '(borrowed)',
     // v3.3.0 — Trip Shared Expense
     trips_open: '🧳 Group Trips',
+    trips_short: 'Trips',
+    iou_inbox_short: 'IOU Inbox',
     trips_title: '🧳 Group Trips',
     trips_active: 'Active',
     trips_closed: 'Closed',
@@ -9121,7 +9138,41 @@ function Paruay() {
   }, new Date().toLocaleDateString(t.locale, {
     day: 'numeric',
     month: 'long'
-  }))), /*#__PURE__*/React.createElement("button", {
+  }))), currentUser && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowFriends(true),
+    title: t.friends_title,
+    style: {
+      position: 'relative',
+      width: 40,
+      height: 36,
+      borderRadius: 999,
+      background: '#FBF6E9',
+      border: '1px solid rgba(127,85,57,0.2)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(Users, {
+    size: 16,
+    color: "#2D5A47"
+  }), friendIncoming.length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      background: '#AA3C28',
+      color: '#F5EFE0',
+      minWidth: 16,
+      height: 16,
+      borderRadius: 999,
+      fontSize: 10,
+      fontWeight: 900,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '0 4px'
+    }
+  }, friendIncoming.length)), /*#__PURE__*/React.createElement("button", {
     onClick: openSettings,
     style: {
       width: 40,
@@ -9136,7 +9187,109 @@ function Paruay() {
   }, /*#__PURE__*/React.createElement(Settings, {
     size: 16,
     color: "#7F5539"
-  })))), /*#__PURE__*/React.createElement("section", {
+  })))), currentUser && /*#__PURE__*/React.createElement("div", {
+    className: "fade-up",
+    style: {
+      animationDelay: '0.03s',
+      display: 'flex',
+      gap: 10,
+      marginBottom: 16
+    }
+  }, (() => {
+    const unreadNotif = notifications.filter(n => !n.is_read).length;
+    const totalBadge = iouInbox.length + loanInbox.length + unreadNotif;
+    return /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        loadIOUInbox(currentUser.id);
+        loadNotifications(currentUser.id);
+        loadLoanInbox(currentUser.id);
+        setShowIOUInbox(true);
+      },
+      className: langClass,
+      style: {
+        flex: 1,
+        position: 'relative',
+        padding: '14px 12px',
+        borderRadius: 16,
+        background: 'linear-gradient(135deg, #D4A574, #7F5539)',
+        color: '#F5EFE0',
+        fontSize: 13,
+        fontWeight: 700,
+        border: 'none',
+        boxShadow: '0 2px 8px rgba(127,85,57,0.25)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 18
+      }
+    }, "\uD83D\uDCEC"), /*#__PURE__*/React.createElement("span", null, t.iou_inbox_short || t.iou_inbox || 'IOU'), totalBadge > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        position: 'absolute',
+        top: 6,
+        right: 8,
+        background: '#AA3C28',
+        color: '#F5EFE0',
+        minWidth: 18,
+        height: 18,
+        borderRadius: 999,
+        fontSize: 10,
+        fontWeight: 900,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 5px',
+        border: '1.5px solid #F5EFE0'
+      }
+    }, totalBadge));
+  })(), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      loadTrips(currentUser.id);
+      setShowTrips(true);
+    },
+    className: langClass,
+    style: {
+      flex: 1,
+      position: 'relative',
+      padding: '14px 12px',
+      borderRadius: 16,
+      background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
+      color: '#F5EFE0',
+      fontSize: 13,
+      fontWeight: 700,
+      border: 'none',
+      boxShadow: '0 2px 8px rgba(93,58,142,0.25)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 18
+    }
+  }, "\uD83E\uDDF3"), /*#__PURE__*/React.createElement("span", null, t.trips_short || t.trips_open || 'Trips'), tripInvitations.length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: 'absolute',
+      top: 6,
+      right: 8,
+      background: '#AA3C28',
+      color: '#F5EFE0',
+      minWidth: 18,
+      height: 18,
+      borderRadius: 999,
+      fontSize: 10,
+      fontWeight: 900,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '0 5px',
+      border: '1.5px solid #F5EFE0'
+    }
+  }, tripInvitations.length))), /*#__PURE__*/React.createElement("section", {
     className: "fade-up",
     style: {
       animationDelay: '0.05s',
@@ -12347,104 +12500,7 @@ function Paruay() {
       fontSize: 13,
       fontWeight: 600
     }
-  }, I18N[sLang].auth_signout)), currentUser && /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowFriends(true),
-    className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
-    style: {
-      width: '100%',
-      padding: 12,
-      marginBottom: 10,
-      borderRadius: 12,
-      background: 'linear-gradient(135deg, #2D5A47, #1B4332)',
-      color: '#F5EFE0',
-      fontSize: 13,
-      fontWeight: 700,
-      border: 'none',
-      boxShadow: '0 2px 4px rgba(27,67,50,0.25)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("span", null, I18N[sLang].friends_open || I18N[sLang].friends_title), friendIncoming.length > 0 && /*#__PURE__*/React.createElement("span", {
-    style: {
-      background: '#AA3C28',
-      color: '#F5EFE0',
-      padding: '2px 8px',
-      borderRadius: 999,
-      fontSize: 11,
-      fontWeight: 900
-    }
-  }, friendIncoming.length)), currentUser && (() => {
-    const unreadNotif = notifications.filter(n => !n.is_read).length;
-    const totalBadge = iouInbox.length + loanInbox.length + unreadNotif;
-    return /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        // Refresh on open
-        loadIOUInbox(currentUser.id);
-        loadNotifications(currentUser.id);
-        loadLoanInbox(currentUser.id);
-        setShowIOUInbox(true);
-      },
-      className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
-      style: {
-        width: '100%',
-        padding: 12,
-        marginBottom: 10,
-        borderRadius: 12,
-        background: 'linear-gradient(135deg, #D4A574, #7F5539)',
-        color: '#F5EFE0',
-        fontSize: 13,
-        fontWeight: 700,
-        border: 'none',
-        boxShadow: '0 2px 4px rgba(127,85,57,0.25)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8
-      }
-    }, /*#__PURE__*/React.createElement("span", null, I18N[sLang].iou_inbox || '📬 IOU Inbox'), totalBadge > 0 && /*#__PURE__*/React.createElement("span", {
-      style: {
-        background: '#AA3C28',
-        color: '#F5EFE0',
-        padding: '2px 8px',
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 900
-      }
-    }, totalBadge));
-  })(), currentUser && /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      loadTrips(currentUser.id);
-      setShowTrips(true);
-    },
-    className: sLang === 'lo' ? 'lao' : sLang === 'th' ? 'thai' : 'en',
-    style: {
-      width: '100%',
-      padding: 12,
-      marginBottom: 10,
-      borderRadius: 12,
-      background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
-      color: '#F5EFE0',
-      fontSize: 13,
-      fontWeight: 700,
-      border: 'none',
-      boxShadow: '0 2px 4px rgba(93,58,142,0.25)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("span", null, I18N[sLang].trips_open), tripInvitations.length > 0 && /*#__PURE__*/React.createElement("span", {
-    style: {
-      background: '#AA3C28',
-      color: '#F5EFE0',
-      padding: '2px 8px',
-      borderRadius: 999,
-      fontSize: 11,
-      fontWeight: 900
-    }
-  }, tripInvitations.length)), currentUser && (() => {
+  }, I18N[sLang].auth_signout)), currentUser && (() => {
     const dot = rtStatus === 'connected' ? '🟢' : rtStatus === 'connecting' ? '🟡' : rtStatus === 'error' ? '🔴' : rtStatus === 'timeout' ? '⏱️' : rtStatus === 'closed' ? '⚫' : '⚪';
     const label = rtStatus === 'connected' ? 'Connected' : rtStatus === 'connecting' ? 'Connecting…' : rtStatus === 'error' ? 'ERROR — check RLS / SQL' : rtStatus === 'timeout' ? 'TIMEOUT — Run paruay-realtime-schema.sql' : rtStatus === 'closed' ? 'Closed' : 'Idle';
     return /*#__PURE__*/React.createElement("div", {
