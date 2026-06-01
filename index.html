@@ -30,6 +30,8 @@
   input, textarea { font-family: inherit; }
   input[type="date"] { font-family: inherit; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes badgePulse { 0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(170,60,40,0.6); } 50% { transform: scale(1.12); box-shadow: 0 0 0 4px rgba(170,60,40,0); } }
+  .badge-pulse { animation: badgePulse 1.6s ease-in-out infinite; }
   .fade-up { animation: fadeUp 0.5s ease-out backwards; }
   .tap-card { transition: transform 0.12s ease-out, filter 0.12s ease-out; }
   .tap-card:active { transform: scale(0.97); filter: brightness(0.94); }
@@ -631,7 +633,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.4.35';
+const APP_VERSION = 'v3.4.36';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -5165,6 +5167,10 @@ function Paruay() {
   useEffect(() => {
     myTripIdsRef.current = new Set(trips.map(tr => tr.id));
   }, [trips]);
+  // v3.4.36 — count of unseen friend-paid trip expenses (for the home Trip badge).
+  // Incremented by realtime/polling when a friend fronts a cost; cleared when the
+  // user opens the Trips modal.
+  const [unseenTripExpenses, setUnseenTripExpenses] = useState(0);
   const [tripInvitations, setTripInvitations] = useState([]); // pending trip invitations
   const [showTrips, setShowTrips] = useState(false);
   const [openTrip, setOpenTrip] = useState(null); // active trip detail view: { trip, members, expenses, settlements }
@@ -5921,6 +5927,7 @@ function Paruay() {
               });
               if (newFriendPaid > 0) {
                 showToast('🧳 ' + (t.rt_trip_expense || 'New trip expense'));
+                setUnseenTripExpenses(c => c + newFriendPaid); // v3.4.36 — bump badge
               }
             }
           }
@@ -7064,6 +7071,7 @@ function Paruay() {
       if (row.paid_by && currentUser && row.paid_by !== currentUser.id) {
         const amt = row.amount ? fmt(Math.abs(row.amount)) : '';
         showToast('🧳 ' + (t.rt_trip_expense || 'New trip expense') + (amt ? ` · ₭ ${amt}` : ''));
+        setUnseenTripExpenses(c => c + 1); // v3.4.36 — bump home Trip badge
       }
       // if the trip detail is open for this trip, refresh it
       if (openTrip && openTrip.trip && openTrip.trip.id === row.trip_id) {
@@ -10068,6 +10076,7 @@ function Paruay() {
         fontSize: 18
       }
     }, "\uD83D\uDCEC"), /*#__PURE__*/React.createElement("span", null, t.iou_inbox_short || t.iou_inbox || 'IOU'), totalBadge > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "badge-pulse",
       style: {
         position: 'absolute',
         top: 6,
@@ -10089,6 +10098,7 @@ function Paruay() {
   })(), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       loadTrips(currentUser.id);
+      setUnseenTripExpenses(0); // v3.4.36 — clear the unseen-expense badge on open
       setShowTrips(true);
     },
     className: langClass,
@@ -10112,25 +10122,30 @@ function Paruay() {
     style: {
       fontSize: 18
     }
-  }, "\uD83E\uDDF3"), /*#__PURE__*/React.createElement("span", null, t.trips_short || t.trips_open || 'Trips'), tripInvitations.length > 0 && /*#__PURE__*/React.createElement("span", {
-    style: {
-      position: 'absolute',
-      top: 6,
-      right: 8,
-      background: '#AA3C28',
-      color: '#F5EFE0',
-      minWidth: 18,
-      height: 18,
-      borderRadius: 999,
-      fontSize: 10,
-      fontWeight: 900,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '0 5px',
-      border: '1.5px solid #F5EFE0'
-    }
-  }, tripInvitations.length))), /*#__PURE__*/React.createElement("section", {
+  }, "\uD83E\uDDF3"), /*#__PURE__*/React.createElement("span", null, t.trips_short || t.trips_open || 'Trips'), (() => {
+    // v3.4.36 — badge = trip invitations + unseen friend-paid expenses
+    const tripBadge = tripInvitations.length + unseenTripExpenses;
+    return tripBadge > 0 ? /*#__PURE__*/React.createElement("span", {
+      className: "badge-pulse",
+      style: {
+        position: 'absolute',
+        top: 6,
+        right: 8,
+        background: '#AA3C28',
+        color: '#F5EFE0',
+        minWidth: 18,
+        height: 18,
+        borderRadius: 999,
+        fontSize: 10,
+        fontWeight: 900,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 5px',
+        border: '1.5px solid #F5EFE0'
+      }
+    }, tripBadge) : null;
+  })())), /*#__PURE__*/React.createElement("section", {
     className: "fade-up",
     style: {
       animationDelay: '0.05s',
