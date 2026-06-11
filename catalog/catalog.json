@@ -1,0 +1,104 @@
+{
+ "version": 1,
+ "updated": "2026-06-11",
+ "categories": [
+  {
+   "id": "drink",
+   "name": "ເຄື່ອງດື່ມ",
+   "emoji": "🥤",
+   "station": "bar"
+  }
+ ],
+ "items": [
+  {
+   "id": "beerlao640",
+   "name": "Beerlao 640ml",
+   "price": 8000,
+   "emoji": "🍺",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/beerlao640.webp",
+   "kw": "เบียร์ลาว เบีย ขวดใหญ่ beer lager ເບຍລາວ ເບຍ 640"
+  },
+  {
+   "id": "beerlaogreen330",
+   "name": "Beerlao Green 330ml",
+   "price": 8000,
+   "emoji": "🍺",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/beerlaogreen330.webp",
+   "kw": "เบียร์ลาว กรีน เขียว beer green ເບຍລາວ ກຣີນ ຂຽວ 330"
+  },
+  {
+   "id": "carlsberg320",
+   "name": "Carlsberg 320ml",
+   "price": 8000,
+   "emoji": "🍺",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/carlsberg320.webp",
+   "kw": "เบียร์ คาร์ลสเบิร์ก beer ເບຍ ຄາສເບີກ 320"
+  },
+  {
+   "id": "tgh600",
+   "name": "Tigerhead 600ml",
+   "price": 8000,
+   "emoji": "💧",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/tgh600.webp",
+   "kw": "น้ำดื่ม น้ำเปล่า หัวเสือ water ນ້ຳດື່ມ ນ້ຳເປົ່າ ຫົວເສືອ 600"
+  },
+  {
+   "id": "pepsi480",
+   "name": "Pepsi 480ml",
+   "price": 8000,
+   "emoji": "🥤",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/pepsi480.webp",
+   "kw": "น้ำอัดลม เป๊ปซี่ โคล่า cola soda ເປັບຊີ ນ້ຳອັດລົມ ໂຄລາ 480"
+  },
+  {
+   "id": "sevenup480",
+   "name": "7UP 480ml",
+   "price": 8000,
+   "emoji": "🥤",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/sevenup480.webp",
+   "kw": "น้ำอัดลม เซเว่นอัพ มะนาว lemon lime soda ນ້ຳອັດລົມ ເຊເວັນອັບ 480"
+  },
+  {
+   "id": "stinggrape",
+   "name": "Sting Grape",
+   "price": 8000,
+   "emoji": "⚡",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/stinggrape.webp",
+   "kw": "สติง ชูกำลัง องุ่น ม่วง energy grape ສະຕິງ ຊູກຳລັງ ອະງຸ່ນ ມ່ວງ"
+  },
+  {
+   "id": "stingred",
+   "name": "Sting Red",
+   "price": 8000,
+   "emoji": "⚡",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/stingred.webp",
+   "kw": "สติง ชูกำลัง แดง เบอร์รี่ energy berry red ສະຕິງ ຊູກຳລັງ ແດງ"
+  },
+  {
+   "id": "stingyellow",
+   "name": "Sting Yellow",
+   "price": 8000,
+   "emoji": "⚡",
+   "cat": "drink",
+   "station": "bar",
+   "img": "img/stingyellow.webp",
+   "kw": "สติง ชูกำลัง เหลือง ส้ม citrus gold energy ສະຕິງ ຊູກຳລັງ ເຫຼືອງ"
+  }
+ ]
+}
