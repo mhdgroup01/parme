@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.41</title>
+<title>ພາລວຍ · Paruay v3.7.42</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.41" />
+<meta name="app-version" content="v3.7.42" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.41</div>
+    <div class="version-tag">v3.7.42</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.41';
+const APP_VERSION = 'v3.7.42';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -11637,6 +11637,16 @@ function Paruay() {
   const notifsInitializedRef = useRef(false);
   const pollTimerRef = useRef(null);
   const pollBusyRef = useRef(false);
+  // v3.7.42 — cursor refs สำหรับ delta polling: เก็บ max(updated_at) ที่เห็นล่าสุด
+  // null = ยังไม่ทำ first poll → next poll = full load (เหมือนเดิม)
+  // string = ทำ first poll แล้ว → next poll = .gt('updated_at', cursor) (delta)
+  // cursorUserRef เก็บ userId เจ้าของ cursor — สลับ user → reset cursor
+  const txCursorRef = useRef(null);
+  const iouCursorRef = useRef(null);
+  const cursorUserRef = useRef(null);
+  // ถ้าเจอ error "column updated_at does not exist" (M ยังไม่รัน SQL) → disable cursor mode
+  // สำหรับ session นี้ ใช้ full poll ตลอด (ไม่ retry cursor mode ใน poll ถัดไป)
+  const cursorDisabledRef = useRef(false);
   const [showIOUList, setShowIOUList] = useState(false);
   const [splitEnabled, setSplitEnabled] = useState(false);
   // splitFriends is now [{id, name}] — me is implicit (ME_ID)
@@ -12331,6 +12341,12 @@ function Paruay() {
     if (!supabase || !userId) return;
     if (pollBusyRef.current) return; // avoid overlap if a poll is still running
     pollBusyRef.current = true;
+    // v3.7.42 — reset cursor ถ้าสลับ user (sign out + sign in)
+    if (cursorUserRef.current !== userId) {
+      txCursorRef.current = null;
+      iouCursorRef.current = null;
+      cursorUserRef.current = userId;
+    }
     try {
       // 1) Notifications — detect new, toast, refresh state
       const {
@@ -12432,37 +12448,94 @@ function Paruay() {
         console.error('[poll trips]', tripErr);
       }
 
-      // 4) My IOU list — keeps balances/badges fresh (filter by user_id for RLS)
-      const {
-        data: iouRows
-      } = await supabase.from('ious').select('*').eq('user_id', userId).order('created_at', {
-        ascending: false
-      });
-      if (iouRows) setIOUs(iouRows.map(iouFromRow));
-
-      // v3.4.24 — 5) Transactions — keeps the "Total balance" card fresh after
-      // a counterparty confirms/settles on another device. RLS already scopes
-      // transactions to the owner, so we don't need an explicit user_id filter.
-      const {
-        data: txRows
-      } = await supabase.from('transactions').select('*').order('date', {
-        ascending: false
-      }).order('created_at', {
-        ascending: false
-      });
-      if (txRows) {
-        const serverTxs = txRows.map(txFromRow);
-        // Merge: keep any LOCAL-only txs that haven't synced yet (avoids wiping
-        // an income/expense we just persisted before the upsert round-trips).
-        const localOnly = transactionsRef.current.filter(lt => !serverTxs.some(st => st.id === lt.id));
-        setTransactions([...localOnly, ...serverTxs]);
+      // 4) My IOU list — v3.7.42 cursor polling: first poll = full, ต่อมา = .gt(updated_at)
+      // ถ้า SQL ยังไม่รัน (column updated_at ไม่มี) → fallback full poll (sticky disable)
+      const useCursorIou = !cursorDisabledRef.current && iouCursorRef.current;
+      const iouQ = useCursorIou
+        ? supabase.from('ious').select('*').eq('user_id', userId).gt('updated_at', iouCursorRef.current).limit(500)
+        : supabase.from('ious').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      const { data: iouRows, error: iouErr } = await iouQ;
+      let iouCount = 0;
+      if (iouErr && /updated_at/.test(iouErr.message || '')) {
+        cursorDisabledRef.current = true;
+        const { data: fbIouRows } = await supabase.from('ious').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+        if (fbIouRows) { setIOUs(fbIouRows.map(iouFromRow)); iouCount = fbIouRows.length; }
+      } else if (iouRows) {
+        iouCount = iouRows.length;
+        if (useCursorIou) {
+          // delta → merge by id
+          if (iouRows.length) {
+            const serverIous = iouRows.map(iouFromRow);
+            setIOUs(prev => {
+              const map = new Map((prev || []).map(x => [x.id, x]));
+              serverIous.forEach(x => map.set(x.id, x));
+              return Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+            });
+            const maxU = iouRows.reduce((m, r) => (r.updated_at && r.updated_at > m) ? r.updated_at : m, iouCursorRef.current);
+            iouCursorRef.current = maxU;
+          }
+        } else {
+          // first poll → full replace + seed cursor
+          setIOUs(iouRows.map(iouFromRow));
+          if (!cursorDisabledRef.current) {
+            const maxU = iouRows.reduce((m, r) => (r.updated_at && r.updated_at > m) ? r.updated_at : m, '');
+            iouCursorRef.current = maxU || new Date().toISOString();
+          }
+        }
       }
-      // v3.4.26 — record a successful poll so the diagnostic panel can prove
-      // polling is actually running (and how many tx/iou it last saw).
+
+      // v3.4.24 — 5) Transactions — keeps the "Total balance" card fresh
+      // v3.7.42 cursor polling + .eq('user_id') defense-in-depth (RLS already scopes)
+      const useCursorTx = !cursorDisabledRef.current && txCursorRef.current;
+      const txQ = useCursorTx
+        ? supabase.from('transactions').select('*').eq('user_id', userId).gt('updated_at', txCursorRef.current).limit(500)
+        : supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }).order('created_at', { ascending: false });
+      const { data: txRows, error: txErr } = await txQ;
+      let txCount = 0;
+      if (txErr && /updated_at/.test(txErr.message || '')) {
+        cursorDisabledRef.current = true;
+        const { data: fbTxRows } = await supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }).order('created_at', { ascending: false });
+        if (fbTxRows) {
+          const serverTxs = fbTxRows.map(txFromRow);
+          const localOnly = transactionsRef.current.filter(lt => !serverTxs.some(st => st.id === lt.id));
+          setTransactions([...localOnly, ...serverTxs]);
+          txCount = fbTxRows.length;
+        }
+      } else if (txRows) {
+        txCount = txRows.length;
+        if (useCursorTx) {
+          // delta → merge by id (preserve local-only auto-protected: not in delta = stays in prev)
+          if (txRows.length) {
+            const serverTxs = txRows.map(txFromRow);
+            setTransactions(prev => {
+              const map = new Map((prev || []).map(x => [x.id, x]));
+              serverTxs.forEach(x => map.set(x.id, x));
+              return Array.from(map.values()).sort((a, b) => {
+                const ad = a.date || '', bd = b.date || '';
+                if (ad !== bd) return bd.localeCompare(ad);
+                return (b.createdAt || '').localeCompare(a.createdAt || '');
+              });
+            });
+            const maxU = txRows.reduce((m, r) => (r.updated_at && r.updated_at > m) ? r.updated_at : m, txCursorRef.current);
+            txCursorRef.current = maxU;
+          }
+        } else {
+          // first poll → full replace + localOnly preservation (เหมือนเดิม) + seed cursor
+          const serverTxs = txRows.map(txFromRow);
+          const localOnly = transactionsRef.current.filter(lt => !serverTxs.some(st => st.id === lt.id));
+          setTransactions([...localOnly, ...serverTxs]);
+          if (!cursorDisabledRef.current) {
+            const maxU = txRows.reduce((m, r) => (r.updated_at && r.updated_at > m) ? r.updated_at : m, '');
+            txCursorRef.current = maxU || new Date().toISOString();
+          }
+        }
+      }
+      // v3.4.26 — record a successful poll so the diagnostic panel can prove polling is running
       setPollStatus({
         time: new Date().toLocaleTimeString(),
-        tx: (txRows || []).length,
-        iou: (iouRows || []).length
+        tx: txCount,
+        iou: iouCount,
+        mode: cursorDisabledRef.current ? 'full' : (txCursorRef.current ? 'delta' : 'first')
       });
     } catch (e) {
       console.error('[pollForUpdates]', e);
