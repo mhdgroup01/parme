@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.46</title>
+<title>ພາລວຍ · Paruay v3.7.47</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.46" />
+<meta name="app-version" content="v3.7.47" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.46</div>
+    <div class="version-tag">v3.7.47</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.46';
+const APP_VERSION = 'v3.7.47';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -10119,6 +10119,7 @@ function FamilyScreen(props) {
       const evt = payload.eventType || payload.event;
       const row = payload.new || payload.old;
       if (!row || !row.id) return;
+      if (justDeletedFamRef.current[row.id]) return; // v3.7.47 — เพิ่งลบ ignore re-add
       setOpen(prev => {
         if (!prev || !prev.family || prev.family.id !== fid) return prev;
         const list = prev[key] || [];
@@ -10534,6 +10535,7 @@ function FamilyScreen(props) {
   };
   const delIou = async id => {
     if (busy) return; setBusy(true);
+    justDeletedFamRef.current[id] = true; setTimeout(() => { delete justDeletedFamRef.current[id]; }, 10000); // v3.7.47 — กัน realtime re-add
     try { const { error } = await supabase.from('family_ious').delete().eq('id', id); if (error) throw error; await loadDetail(open.family); }
     catch (e) { flash(L('err') + ': ' + (e.message || e)); }
     setBusy(false);
@@ -10571,6 +10573,7 @@ function FamilyScreen(props) {
   const delMsg = async id => {
     if (busy) return;
     setBusy(true);
+    justDeletedFamRef.current[id] = true; setTimeout(() => { delete justDeletedFamRef.current[id]; }, 10000); // v3.7.47
     try {
       const { error } = await supabase.from('family_messages').delete().eq('id', id);
       if (error) throw error;
@@ -10601,6 +10604,7 @@ function FamilyScreen(props) {
   };
   const delTx = async id => {
     if (!window.confirm(L('del_confirm'))) return;
+    justDeletedFamRef.current[id] = true; setTimeout(() => { delete justDeletedFamRef.current[id]; }, 10000); // v3.7.47
     try { await supabase.from('family_transactions').delete().eq('id', id); await loadDetail(open.family); }
     catch (e) { console.error(e); }
   };
@@ -11637,6 +11641,12 @@ function Paruay() {
   const notifsInitializedRef = useRef(false);
   const pollTimerRef = useRef(null);
   const pollBusyRef = useRef(false);
+  // v3.7.47 — race protection สำหรับทุก realtime channel ที่ใช้ merge-by-id pattern
+  // ลบ local → debounce cloud DELETE → ระหว่างนั้น remote UPDATE/INSERT มาถึง
+  // → handler ไม่รู้ว่าเพิ่งลบ → re-add → "กลับมาเหมือนเดิม"
+  // แก้: เก็บ id ที่เพิ่งลบ 10 วิ; merge handler check ก่อน → ignore
+  const justDeletedFamRef = useRef({});  // family: tx/msg/iou ids
+  const justDeletedPosRef = useRef({});  // POS: sale/product/category ids
   // v3.7.42 — cursor refs สำหรับ delta polling: เก็บ max(updated_at) ที่เห็นล่าสุด
   // null = ยังไม่ทำ first poll → next poll = full load (เหมือนเดิม)
   // string = ทำ first poll แล้ว → next poll = .gt('updated_at', cursor) (delta)
@@ -16512,6 +16522,7 @@ function Paruay() {
       const evt = payload.eventType || payload.event;
       const rowRaw = payload.new || payload.old;
       if (!rowRaw || !rowRaw.id) return;
+      if (justDeletedPosRef.current[rowRaw.id]) return; // v3.7.47 — เพิ่งลบ ignore re-add
       setter(prev => {
         const list = prev || [];
         let next;
@@ -16563,6 +16574,14 @@ function Paruay() {
     };
   }, [posShopId]);
   const savePosProducts = next => {
+    // v3.7.47 — mark removed product ids กัน realtime UPDATE re-add
+    const nextSet = new Set(next.map(n => n.id));
+    (posProducts || []).forEach(p => {
+      if (!nextSet.has(p.id)) {
+        justDeletedPosRef.current[p.id] = true;
+        setTimeout(() => { delete justDeletedPosRef.current[p.id]; }, 10000);
+      }
+    });
     setPosProducts(next);
     try {
       localStorage.setItem('paruay_pos_products', JSON.stringify(next));
@@ -16570,6 +16589,14 @@ function Paruay() {
     syncProductsCloud(posProducts, next);
   };
   const savePosCategories = next => {
+    // v3.7.47 — mark removed category ids กัน realtime UPDATE re-add
+    const nextSet = new Set(next.map(n => n.id));
+    (posCategories || []).forEach(c => {
+      if (!nextSet.has(c.id)) {
+        justDeletedPosRef.current[c.id] = true;
+        setTimeout(() => { delete justDeletedPosRef.current[c.id]; }, 10000);
+      }
+    });
     setPosCategories(next);
     try {
       localStorage.setItem('paruay_pos_categories', JSON.stringify(next));
@@ -16700,6 +16727,7 @@ function Paruay() {
   // v3.4.62 — delete a sale from the POS ledger; if it was linked, also remove the income tx.
   // v3.4.63 — also restore stock for tracked products (a delete fully undoes the sale).
   const posDeleteSale = saleId => {
+    justDeletedPosRef.current[saleId] = true; setTimeout(() => { delete justDeletedPosRef.current[saleId]; }, 10000); // v3.7.47 — กัน realtime re-add
     const sale = posSales.find(s => s.id === saleId);
     savePosSalesStore(posSales.filter(s => s.id !== saleId));
     if (sale) applyTotalsDelta(sale.total, sale.costTotal, sale.date, -1);
