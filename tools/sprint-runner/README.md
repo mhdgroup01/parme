@@ -20,10 +20,16 @@ AI ทำงาน sprint แทน — รัน tasks autonomous, bug-hunt ท
 ### 2. รัน
 
 ```bash
-bash tools/sprint-runner/run.sh           # ทุก task
-bash tools/sprint-runner/run.sh --dry     # plan only (ดูว่าจะทำอะไร)
-bash tools/sprint-runner/run.sh --one     # ทำแค่ task แรก แล้วหยุด
+bash tools/sprint-runner/run.sh             # ทุก task + auto-merge เป็น main
+bash tools/sprint-runner/run.sh --one       # ทำ task แรก + auto-merge
+bash tools/sprint-runner/run.sh --dry       # plan only (ดูว่าจะทำอะไร)
+bash tools/sprint-runner/run.sh --no-merge  # opt-out จาก auto-merge (ค้างไว้บน sprint branch)
 ```
+
+**Auto-merge default (solo workflow):**
+- หลัง bug-hunter ผ่าน + push branch → fast-forward main → push main → ลบ branch
+- **STOP** อัตโนมัติถ้ามี SQL ใหม่ใน `tools/migrations/pending/` (ป้องกัน deploy โดย SQL ยังไม่รัน)
+- ใช้ `--no-merge` ถ้าอยาก review บน GitHub ก่อน
 
 ### 3. หลังรัน sprint
 
@@ -35,10 +41,8 @@ Sprint-runner จะ:
 - พิมพ์คำสั่ง PR
 
 แล้วคุณ:
-1. `git diff main...sprint-...` ดู PR diff
-2. รัน SQL ใน `tools/migrations/pending/` (ถ้ามี)
-3. `gh pr create` หรือเปิดผ่าน web
-4. Review → merge
+- ถ้า**ไม่มี SQL**: ไม่ต้องทำอะไร → เปิดแอป เทสในมือถือ
+- ถ้า**มี SQL**: รัน SQL ใน `tools/migrations/pending/` → แล้ว manual merge ตามคำสั่งที่ script print ออกมา
 
 ## Safety
 

@@ -30,12 +30,15 @@ fi
 
 # ── parse args ──
 MODE="all"
-case "${1:-}" in
-  --dry) MODE="dry" ;;
-  --one) MODE="one" ;;
-  "") MODE="all" ;;
-  *) echo "Unknown arg: $1" >&2; exit 1 ;;
-esac
+NO_MERGE=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry) MODE="dry" ;;
+    --one) MODE="one" ;;
+    --no-merge) NO_MERGE=1 ;;  # opt-out จาก auto-merge default
+    *) echo "Unknown arg: $arg" >&2; exit 1 ;;
+  esac
+done
 
 BACKLOG="tools/sprint-runner/backlog.md"
 POLICIES="tools/sprint-runner/policies.md"
@@ -204,14 +207,51 @@ if [ "$PUSH_EXIT" -ne 0 ]; then
   exit 1
 fi
 
+# ── auto-merge เป็น main (default) — solo workflow, skip PR ceremony ──
+# ห้าม merge ถ้ามี SQL pending รอ user รัน (deploy client โดยไม่มี SQL = bug แน่นอน)
+PENDING_SQL_NEW="$(git diff main..."$CUR_BRANCH" --name-only -- 'tools/migrations/pending/*.sql' 2>/dev/null | head -5)"
+
+if [ -n "$PENDING_SQL_NEW" ]; then
+  echo
+  echo "═══════════════════════════════════════════════════"
+  echo "⚠ Branch pushed แต่ NOT MERGED — มี SQL ใหม่ใน pending/"
+  echo "═══════════════════════════════════════════════════"
+  echo "ต้องรัน SQL ใน Supabase ก่อน merge:"
+  echo "$PENDING_SQL_NEW" | sed 's/^/  - /'
+  echo
+  echo "หลังรัน SQL เสร็จ → merge manual:"
+  echo "  git checkout main && git merge $CUR_BRANCH && git push"
+  echo "  git branch -D $CUR_BRANCH && git push origin --delete $CUR_BRANCH"
+  exit 0
+fi
+
+if [ "$NO_MERGE" -eq 1 ]; then
+  echo
+  echo "✓ Branch pushed (--no-merge flag). Manual merge:"
+  echo "  git checkout main && git merge $CUR_BRANCH && git push"
+  exit 0
+fi
+
+# auto-merge: solo workflow, bug-hunter ผ่านแล้ว, ไม่มี SQL → ส่งขึ้น production เลย
+echo
+echo "→ auto-merging $CUR_BRANCH → main..."
+set +e
+git checkout main 2>&1 | tail -1
+git merge --ff-only "$CUR_BRANCH" 2>&1 | tail -2
+MERGE_EXIT=$?
+if [ "$MERGE_EXIT" -ne 0 ]; then
+  echo "✗ fast-forward merge fail — manual merge required"
+  echo "  git merge $CUR_BRANCH (resolve conflicts)"
+  exit 1
+fi
+git push 2>&1 | tail -2
+git branch -D "$CUR_BRANCH" 2>&1 | tail -1
+git push origin --delete "$CUR_BRANCH" 2>&1 | tail -1
+set -e
+
 echo
 echo "═══════════════════════════════════════════════════"
-echo "✓ Branch pushed. Next steps:"
+echo "✓ Sprint complete — main updated, branch cleaned up"
+echo "  GitHub Pages auto-deploys ใน ~1 นาที"
+echo "  ทดสอบจริงในแอป"
 echo "═══════════════════════════════════════════════════"
-echo "1. Review diff on GitHub or via:"
-echo "     git diff main...$CUR_BRANCH"
-echo "2. รัน SQL ใน tools/migrations/pending/ (ถ้ามี) ผ่าน Supabase SQL editor"
-echo "3. Create PR:"
-echo "     gh pr create --title 'Sprint $CUR_BRANCH' --body \"\$(cat tools/sprint-runner/backlog.md)\""
-echo "   หรือผ่าน GitHub web"
-echo "4. Merge → GitHub Pages auto-deploy"
