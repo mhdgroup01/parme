@@ -8,7 +8,7 @@
 
 - [x] แก้ timezone mismatch ใน pos_sales_totals — DONE in c0e5c42 (v3.7.44, sprint-2026-06-16-0326)
 
-- [ ] แก้ POS sales realtime UPDATE prepend ผิดตำแหน่ง — bug LOW จาก bug-hunter report 2026-06-16-0205: ใน mergeRow สาขา UPDATE เมื่อ idx<0 (บิลอยู่นอก 500 ที่โหลด) ปัจจุบัน prepend ทื่อๆ ทำให้บิลเก่าเด้งขึ้นหัวลิสต์ผิด. แก้: ใน mergeRow ที่ใช้ใน POS realtime useEffect (grep "mergeRow = " ใน index.html) สาขา UPDATE ถ้า idx<0 ให้ return prev (ไม่ insert — บิลอยู่นอก window) แทนการ prepend. เฉพาะตาราง pos_sales (products/categories ไม่กระทบ — แต่ mergeRow ใช้ร่วมกัน คิดให้ดี: อาจต้องแยก behavior ตาม listKey หรือเช็คผ่าน prepend flag)
+- [x] แก้ POS sales realtime UPDATE prepend ผิดตำแหน่ง — DONE in a427310 (v3.7.45)
 
 - [ ] เพิ่ม load-more pagination สำหรับ POS sales history > 500 บิล — ปัจจุบัน loadShopData ใช้ .limit(500) แต่ UI ไม่มีปุ่ม "ดูบิลเก่ากว่านี้". แก้: เพิ่มปุ่ม "โหลดเพิ่ม" ใน POS history view ที่ดึง pos_sales เก่ากว่า bill ล่างสุดที่มี (.lt('created_at', oldestCreatedAt).limit(100)). ไม่ใช้ infinite scroll (single-file PWA, simple). UI: ปุ่มท้ายลิสต์ + count "แสดง N จาก ?"
 
