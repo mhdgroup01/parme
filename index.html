@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.45</title>
+<title>ພາລວຍ · Paruay v3.7.46</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.45" />
+<meta name="app-version" content="v3.7.46" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.45</div>
+    <div class="version-tag">v3.7.46</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.45';
+const APP_VERSION = 'v3.7.46';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -29578,8 +29578,12 @@ function POSModal({
     return m;
   };
   const mergeBillsRef = useRef(mergeBills); mergeBillsRef.current = mergeBills;
+  // v3.7.46 — กัน race: เพิ่ง finishActiveBill แล้ว remote UPDATE มาถึง → re-add บิลกลับเข้า state → cart โผล่กลับมา
+  // เก็บ id บิลที่เพิ่ง finish ไว้ ignore remote event ของมัน 10 วิ
+  const justFinishedRef = useRef({});
   const applyRemoteRow = row => { try {
     if (!row || !row.id) return;
+    if (justFinishedRef.current[row.id]) return; // เพิ่ง finish — อย่า re-add
     const nb = billFromRowRef.current(row);
     const j = billJsonRef.current(nb);
     setBills(bs => {
@@ -29795,6 +29799,12 @@ function POSModal({
   };
   const finishActiveBill = () => {
     const aid = activeBill ? activeBill.id : null;
+    // v3.7.46 — mark just-finished bill เพื่อ applyRemoteRow ignore re-add ในช่วง 10 วิ
+    // (กัน race: realtime UPDATE มาถึงระหว่าง 800ms debounce ก่อน DELETE จะถึง cloud)
+    if (aid) {
+      justFinishedRef.current[aid] = true;
+      setTimeout(() => { delete justFinishedRef.current[aid]; }, 10000);
+    }
     const rest = bills.filter(b => b.id !== aid);
     if (rest.length === 0) {
       const nb = {
