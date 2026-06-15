@@ -6,7 +6,7 @@
 คุยกับเจ้าของโปรเจกต์ (M) เป็น **ภาษาไทย** เสมอ ใช้ศัพท์เทคนิคภาษาอังกฤษได้ตามปกติ
 
 ## ภาพรวมโปรเจกต์
-Paruay เป็น **single-file React + Babel PWA** ไฟล์เดียวคือ `index.html` (~3.9MB)
+Paruay เป็น **single-file React PWA** ไฟล์เดียวคือ `index.html` (~3.9MB)
 รวม 3 ระบบในแอปเดียว:
 - การเงินส่วนตัว/ครอบครัว (เน้นเงินกีบลาว + รองรับสกุลเงินต่างประเทศ)
 - POS ร้านอาหาร/ร้านค้า (โต๊ะ, QR order, ครัว, ส่วนลด/service charge)
@@ -17,7 +17,7 @@ Paruay เป็น **single-file React + Babel PWA** ไฟล์เดีย�
 
 ## สถาปัตยกรรม (ข้อจำกัดที่ต้องยึดเสมอ)
 - **ไฟล์เดียว** — ทุกอย่างอยู่ใน `index.html` ห้ามแตกไฟล์ JS/CSS ออก
-- **Babel compile ในเบราว์เซอร์** — โค้ด React เขียนแบบ `React.createElement` (มี `h` เป็น alias) ไม่ใช้ JSX ในบาง block
+- **ไม่มี build step** — โค้ดเขียน `React.createElement` ตรงๆ (มี `h` เป็น alias) ไม่มี Babel runtime ในเบราว์เซอร์
 - Deploy ผ่าน **GitHub Pages**: https://mhdgroup01.github.io/paruay/ (repo: `mhdgroup01/paruay`, branch `main`)
 - **Backend: Supabase** (region Singapore) — auth, realtime, postgres
 
@@ -100,3 +100,17 @@ GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) 
 - ห้าม `cat`/อ่านทั้งไฟล์ 3.9MB โดยไม่จำเป็น — ใช้ `grep -n` + `sed -n` ช่วงแคบ ๆ (ระวังบรรทัด I18N dictionary ที่ยาวเป็นหมื่นตัวอักษร — grep แบบจำกัด width)
 - ห้าม bump version ไม่ครบ 4 จุด
 - ห้าม commit โดยยังไม่ผ่าน `node --check`
+
+## ตัดสินใจแล้ว — ไม่ทำ (ป้องกัน session ถัดไปเสนอซ้ำ)
+
+ผ่าน research workflow 2026-06-15 (52 agents, audit + adversarial review):
+
+**ไม่ migrate PowerSync / cr-sqlite (local-first)** — ขัด iron rule "single file"; anon QR ไม่มี JWT (sync layer ไม่รองรับ); ผู้ใช้ส่วนใหญ่ single-writer ไม่ต้อง CRDT; delta-merge ใน-memory ทำเองได้ ~90% ของ benefit (ดู v3.7.37+ realtime delta-merge work).
+
+**ไม่ migrate Vite / SvelteKit** — claim "ลด bundle 60%" ลอย เพราะ Paruay ไม่มี Babel runtime อยู่แล้ว (React.createElement ตรงๆ); ขัด no-build rule.
+
+**ไม่ย้าย GitHub Pages → Cloudflare Pages** — origin change → PWA ที่ install ไว้แล้ว orphan; GitHub Pages มี Fastly Bangkok PoP อยู่แล้ว.
+
+**ไม่เพิ่ม Service Worker shell cache** — ขัด iron rule "ห้ามแตกไฟล์"; SW จาก Blob URL ไม่มี scope; version skew กับ Supabase schema = correctness risk.
+
+**Trigger reconsider:** ถ้ามี shop จริง > 10 + multi-cashier conflict report จริง + ยอมแตก single-file constraint → คุยเรื่อง local-first ใหม่.
