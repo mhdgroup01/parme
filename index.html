@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.38</title>
+<title>ພາລວຍ · Paruay v3.7.39</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.38" />
+<meta name="app-version" content="v3.7.39" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.38</div>
+    <div class="version-tag">v3.7.39</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.38';
+const APP_VERSION = 'v3.7.39';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -16357,22 +16357,72 @@ function Paruay() {
       localStorage.setItem('paruay_pos_shop_id', posShopId);
     } catch (_) {}
     loadShopData(posShopId);
-    const ch = supabase.channel('pos-shop-' + posShopId);
-    ['pos_products', 'pos_categories', 'pos_sales'].forEach(tbl => {
-      ch.on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: tbl,
-        filter: 'shop=eq.' + posShopId
-      }, () => {
-        loadShopData(posShopId);
-      });
+    // delta-merge (Phase 2.2): payload event → merge in-place แทน loadShopData ทั้งก้อน
+    // ลด 4-query refetch ต่อทุก event → 0 (เช่น ทุก sale = ทุก device ดึง 4 query ใหม่)
+    // localStorage write-through ให้ offline cache สด
+    const mapProd = r => ({
+      id: r.id, name: r.name, price: Number(r.price) || 0, cost: Number(r.cost) || 0,
+      stock: r.stock == null ? null : r.stock, emoji: r.emoji || '', photo: r.photo || null,
+      categoryId: r.category_id || null, station: r.station || null,
+      sort: r.sort == null ? null : Number(r.sort)
     });
-    ch.subscribe();
+    const mapCat = r => ({
+      id: r.id, name: r.name, emoji: r.emoji || '', station: r.station || null
+    });
+    const mapSale = r => ({
+      id: r.id, items: r.items || [], total: Number(r.total) || 0,
+      costTotal: Number(r.cost_total) || 0, seller: r.seller_name || null,
+      table: r.table_no == null ? null : (Number.isNaN(parseInt(r.table_no, 10)) ? r.table_no : parseInt(r.table_no, 10)),
+      subTotal: r.sub_total == null ? null : Number(r.sub_total),
+      discount: Number(r.discount) || 0, svc: Number(r.svc) || 0, svcPct: Number(r.svc_pct) || 0,
+      date: (r.created_at || '').slice(0, 10), createdAt: r.created_at
+    });
+    const mergeRow = (setter, storageKey, mapper, payload, prepend) => {
+      const evt = payload.eventType || payload.event;
+      const rowRaw = payload.new || payload.old;
+      if (!rowRaw || !rowRaw.id) return;
+      setter(prev => {
+        const list = prev || [];
+        let next;
+        if (evt === 'DELETE') {
+          if (!list.some(x => x.id === rowRaw.id)) return prev;
+          next = list.filter(x => x.id !== rowRaw.id);
+        } else if (evt === 'UPDATE') {
+          const mapped = mapper(payload.new);
+          const idx = list.findIndex(x => x.id === mapped.id);
+          if (idx < 0) next = prepend ? [mapped].concat(list) : list.concat([mapped]);
+          else { next = list.slice(); next[idx] = mapped; }
+        } else {
+          if (list.some(x => x.id === rowRaw.id)) return prev;
+          const mapped = mapper(payload.new);
+          next = prepend ? [mapped].concat(list) : list.concat([mapped]);
+        }
+        try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch (_) {}
+        return next;
+      });
+    };
+    const ch = supabase.channel('pos-shop-' + posShopId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_products', filter: 'shop=eq.' + posShopId }, payload => mergeRow(setPosProducts, 'paruay_pos_products', mapProd, payload, false))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_categories', filter: 'shop=eq.' + posShopId }, payload => mergeRow(setPosCategories, 'paruay_pos_categories', mapCat, payload, false))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_sales', filter: 'shop=eq.' + posShopId }, payload => mergeRow(setPosSales, 'paruay_pos_sales', mapSale, payload, true));
+    let firstSubscribe = true;
+    ch.subscribe(status => {
+      if (status !== 'SUBSCRIBED') return;
+      // initial subscribe: loadShopData ที่ใส่ไว้ข้างบนโหลดให้แล้ว
+      if (firstSubscribe) { firstSubscribe = false; return; }
+      // re-subscribe (network กลับมา) → resync เผื่อพลาด event
+      loadShopData(posShopId);
+    });
+    const onVis = () => { if (!document.hidden) loadShopData(posShopId); };
+    const onOnline = () => loadShopData(posShopId);
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('online', onOnline);
     return () => {
       try {
         supabase.removeChannel(ch);
       } catch (_) {}
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('online', onOnline);
     };
   }, [posShopId]);
   const savePosProducts = next => {
