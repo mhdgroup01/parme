@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.40</title>
+<title>ພາລວຍ · Paruay v3.7.41</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.40" />
+<meta name="app-version" content="v3.7.41" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.40</div>
+    <div class="version-tag">v3.7.41</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.40';
+const APP_VERSION = 'v3.7.41';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -16231,6 +16231,20 @@ function Paruay() {
       });
     } catch (_) { setPosTotals(null); }
   };
+  // v3.7.41 — optimistic update posTotals หลัง local write (instant UX + ทำงานตอน offline ด้วย)
+  // sign: +1 = insert sale, -1 = delete sale. realtime echo จะ RPC refetch ทับเป็น canonical ภายหลัง
+  const applyTotalsDelta = (saleTotal, saleCostTotal, saleDate, sign) => {
+    setPosTotals(prev => {
+      if (!prev) return prev; // RPC ยังไม่พร้อม — fallback client reduce ดูแลให้
+      const isToday = saleDate === todayStr();
+      return {
+        totalRev: prev.totalRev + sign * (Number(saleTotal) || 0),
+        totalCost: prev.totalCost + sign * (Number(saleCostTotal) || 0),
+        todayRev: prev.todayRev + (isToday ? sign * (Number(saleTotal) || 0) : 0),
+        saleCount: prev.saleCount + sign
+      };
+    });
+  };
   const posInviteFriend = async friend => {
     if (!supabase || !currentUser || !posMyShopId || !friend || !friend.id) return;
     try {
@@ -16378,6 +16392,8 @@ function Paruay() {
       localStorage.setItem('paruay_pos_shop_id', posShopId);
     } catch (_) {}
     loadShopData(posShopId);
+    // v3.7.41 — reset posTotals ก่อน refetch กัน flash ยอดร้านเก่าเวลาสลับร้าน
+    setPosTotals(null);
     loadPosTotals(posShopId);
     let totalsTimer = null;
     const scheduleTotalsRefresh = () => {
@@ -16575,6 +16591,7 @@ function Paruay() {
       linkedTxId
     };
     savePosSalesStore([sale, ...posSales]);
+    applyTotalsDelta(sale.total, sale.costTotal, sale.date, 1);
     // v3.4.63 — decrement stock for tracked products
     const sold = {};
     items.forEach(it => {
@@ -16593,6 +16610,7 @@ function Paruay() {
   const posDeleteSale = saleId => {
     const sale = posSales.find(s => s.id === saleId);
     savePosSalesStore(posSales.filter(s => s.id !== saleId));
+    if (sale) applyTotalsDelta(sale.total, sale.costTotal, sale.date, -1);
     if (sale && sale.linkedTxId) {
       persist(transactions.filter(tx => tx.id !== sale.linkedTxId));
     }
@@ -16632,6 +16650,8 @@ function Paruay() {
       seller: seller != null ? seller : old.seller
     };
     savePosSalesStore(posSales.map(s => s.id === saleId ? newSale : s));
+    applyTotalsDelta(old.total, old.costTotal, old.date, -1);
+    applyTotalsDelta(newSale.total, newSale.costTotal, old.date, 1);
     const ids = Object.keys(delta).filter(id => delta[id] !== 0);
     if (ids.length) {
       savePosProducts(posProducts.map(p => p.stock != null && delta[p.id] ? {
