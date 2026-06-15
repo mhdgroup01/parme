@@ -51,26 +51,27 @@ BEGIN
       ) c),
 
     -- Phase B: chart data (server-side, ครอบทุก row)
+    -- v3.7.54: TZ Asia/Bangkok (= Vientiane +7) เพื่อให้ peak hour / daily bucket ตรงกับเวลา local
     'hourly', (SELECT COALESCE(json_agg(n ORDER BY h), '[]'::json) FROM (
-        SELECT EXTRACT(HOUR FROM created_at)::int AS h, COUNT(*)::int AS n
+        SELECT EXTRACT(HOUR FROM (created_at AT TIME ZONE 'Asia/Bangkok'))::int AS h, COUNT(*)::int AS n
           FROM public.user_activity
           WHERE created_at >= p_since
           GROUP BY 1
       ) hr),
     'weekday', (SELECT COALESCE(json_agg(n ORDER BY d), '[]'::json) FROM (
-        SELECT EXTRACT(DOW FROM created_at)::int AS d, COUNT(*)::int AS n
+        SELECT EXTRACT(DOW FROM (created_at AT TIME ZONE 'Asia/Bangkok'))::int AS d, COUNT(*)::int AS n
           FROM public.user_activity
           WHERE created_at >= p_since
           GROUP BY 1
       ) wk),
     'daily', (SELECT COALESCE(json_agg(row_to_json(d) ORDER BY day), '[]'::json) FROM (
-        SELECT date_trunc('day', created_at)::date AS day, COUNT(*)::int AS events
+        SELECT (date_trunc('day', created_at AT TIME ZONE 'Asia/Bangkok'))::date AS day, COUNT(*)::int AS events
           FROM public.user_activity
           WHERE created_at >= p_since
           GROUP BY 1
       ) d),
     'new_users_daily', (SELECT COALESCE(json_agg(row_to_json(d) ORDER BY day), '[]'::json) FROM (
-        SELECT date_trunc('day', created_at)::date AS day, COUNT(*)::int AS n
+        SELECT (date_trunc('day', created_at AT TIME ZONE 'Asia/Bangkok'))::date AS day, COUNT(*)::int AS n
           FROM public.profiles
           WHERE created_at >= p_since
           GROUP BY 1
@@ -101,13 +102,8 @@ BEGIN
           FROM public.user_activity
           WHERE created_at >= p_since AND country IS NOT NULL
           ORDER BY user_id, created_at DESC
-      ) c),
-    'recent', (SELECT COALESCE(json_agg(row_to_json(r)), '[]'::json) FROM (
-        SELECT * FROM public.user_activity
-          WHERE created_at >= p_since
-          ORDER BY created_at DESC
-          LIMIT 5000
-      ) r)
+      ) c)
+    -- v3.7.54: ลบ recent field (ไม่ได้ใช้ — activity tab + CSV ใช้ activities download อยู่แล้ว)
   ) INTO result;
 
   RETURN result;

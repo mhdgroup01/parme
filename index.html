@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.53</title>
+<title>ພາລວຍ · Paruay v3.7.54</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.53" />
+<meta name="app-version" content="v3.7.54" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.53</div>
+    <div class="version-tag">v3.7.54</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.53';
+const APP_VERSION = 'v3.7.54';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -7981,11 +7981,12 @@ function AdminDashboard({
   const newUsersWeek = summary ? Number(summary.new_users_week) || 0 : newUsersWeekLocal;
   const newUsersToday = summary ? Number(summary.new_users_today) || 0 : newUsersTodayLocal;
 
-  // v3.7.53 Phase B: charts ใช้ summary จาก RPC ถ้ามี (ครอบทุก row ใน DB)
-  // fallback client-compute ถ้า RPC ยังไม่พร้อม / activities limit
+  // v3.7.54: summary ครอบ 365 วันเสมอ → ใช้ได้แม่นยำเมื่อ period === 'all' เท่านั้น
+  // period อื่น (today/week/month/quarter) ต้องใช้ client-compute filteredActs (period-correct)
+  const useSummaryPeriodic = !!(summary && period === 'all');
   // Country breakdown
   let topCountries, totalCountryEvents;
-  if (summary && Array.isArray(summary.top_countries) && summary.top_countries.length) {
+  if (useSummaryPeriodic && Array.isArray(summary.top_countries) && summary.top_countries.length) {
     topCountries = summary.top_countries.map(c => [c.country, Number(c.n) || 0]);
     totalCountryEvents = topCountries.reduce((s, [, n]) => s + n, 0);
   } else {
@@ -8000,7 +8001,7 @@ function AdminDashboard({
 
   // Hour of day
   let hourCount;
-  if (summary && Array.isArray(summary.hourly) && summary.hourly.length === 24) {
+  if (useSummaryPeriodic && Array.isArray(summary.hourly) && summary.hourly.length === 24) {
     hourCount = summary.hourly.map(n => Number(n) || 0);
   } else {
     hourCount = Array(24).fill(0);
@@ -8012,7 +8013,7 @@ function AdminDashboard({
   // Weekday
   let weekCount;
   const weekLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  if (summary && Array.isArray(summary.weekday) && summary.weekday.length === 7) {
+  if (useSummaryPeriodic && Array.isArray(summary.weekday) && summary.weekday.length === 7) {
     weekCount = summary.weekday.map(n => Number(n) || 0);
   } else {
     weekCount = Array(7).fill(0);
@@ -8035,7 +8036,9 @@ function AdminDashboard({
     const dayStart = new Date(now - d * DAY);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(dayStart.getTime() + DAY);
-    const dayKey = dayStart.toISOString().slice(0, 10);
+    // v3.7.54: dayKey ใช้ local date ให้ตรงกับ summary.daily ที่คำนวณด้วย Asia/Bangkok ฝั่ง server
+    //          เดิม .toISOString().slice(0,10) คือ UTC → admin ลาว/ไทย (+7) ก่อน 07:00 ได้ key เมื่อวาน
+    const dayKey = dayStart.getFullYear() + '-' + String(dayStart.getMonth() + 1).padStart(2, '0') + '-' + String(dayStart.getDate()).padStart(2, '0');
     const newUsers = _summaryNewUsersMap
       ? (_summaryNewUsersMap.get(dayKey) || 0)
       : profiles.filter(p => {
