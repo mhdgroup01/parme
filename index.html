@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.52</title>
+<title>ພາລວຍ · Paruay v3.7.53</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.52" />
+<meta name="app-version" content="v3.7.53" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.52</div>
+    <div class="version-tag">v3.7.53</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.52';
+const APP_VERSION = 'v3.7.53';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -7774,10 +7774,12 @@ function AdminDashboard({
       setVerified(true);
 
       // Fetch last 365 days of activity + all profiles
+      // v3.7.53 Phase B: ลด limit 10000 → 5000 (เก็บ activities สำหรับ CSV + activity tab list)
+      // chart calcs ทุกตัวย้ายไป RPC summary แล้ว — activities ใช้แค่ list + CSV
       const since = new Date(Date.now() - 365 * 86400 * 1000).toISOString();
       const [actRes, profRes] = await Promise.all([supabase.from('user_activity').select('*').gte('created_at', since).order('created_at', {
         ascending: false
-      }).limit(10000), supabase.from('profiles').select('*')]);
+      }).limit(5000), supabase.from('profiles').select('*')]);
       if (actRes.error) throw actRes.error;
       if (profRes.error) throw profRes.error;
       setActivities(actRes.data || []);
@@ -7814,17 +7816,31 @@ function AdminDashboard({
         mapInstance.current = null;
       }
       // Compute geo points inline from current activities/profiles
+      // v3.7.53 Phase B: ใช้ summary.user_geo ถ้ามี (ครอบทุก row ใน DB); fallback activities
       const userGeoLocal = new Map();
-      activities.forEach(a => {
-        if (a.latitude && a.longitude && !userGeoLocal.has(a.user_id)) {
-          userGeoLocal.set(a.user_id, {
-            lat: a.latitude,
-            lng: a.longitude,
-            country: a.country,
-            city: a.city
-          });
-        }
-      });
+      if (summary && Array.isArray(summary.user_geo) && summary.user_geo.length) {
+        summary.user_geo.forEach(g => {
+          if (g && g.user_id && !userGeoLocal.has(g.user_id)) {
+            userGeoLocal.set(g.user_id, {
+              lat: Number(g.lat),
+              lng: Number(g.lng),
+              country: g.country,
+              city: g.city
+            });
+          }
+        });
+      } else {
+        activities.forEach(a => {
+          if (a.latitude && a.longitude && !userGeoLocal.has(a.user_id)) {
+            userGeoLocal.set(a.user_id, {
+              lat: a.latitude,
+              lng: a.longitude,
+              country: a.country,
+              city: a.city
+            });
+          }
+        });
+      }
       const usersByIdLocal = new Map(profiles.map(p => [p.id, p]));
       const map = L.map(mapRef.current).setView([20, 0], 2);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -7854,7 +7870,7 @@ function AdminDashboard({
     return () => {
       cancelled = true;
     };
-  }, [tab, verified, activities.length, profiles.length]);
+  }, [tab, verified, activities.length, profiles.length, summary]); // v3.7.53 — re-render map เมื่อ summary มาถึง
 
   // ── Gate screen for unverified ──
   if (!verified) {
@@ -7965,54 +7981,78 @@ function AdminDashboard({
   const newUsersWeek = summary ? Number(summary.new_users_week) || 0 : newUsersWeekLocal;
   const newUsersToday = summary ? Number(summary.new_users_today) || 0 : newUsersTodayLocal;
 
+  // v3.7.53 Phase B: charts ใช้ summary จาก RPC ถ้ามี (ครอบทุก row ใน DB)
+  // fallback client-compute ถ้า RPC ยังไม่พร้อม / activities limit
   // Country breakdown
-  const countryCount = new Map();
-  filteredActs.forEach(a => {
-    const c = a.country || '—';
-    countryCount.set(c, (countryCount.get(c) || 0) + 1);
-  });
-  const topCountries = [...countryCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const totalCountryEvents = topCountries.reduce((s, [, n]) => s + n, 0);
+  let topCountries, totalCountryEvents;
+  if (summary && Array.isArray(summary.top_countries) && summary.top_countries.length) {
+    topCountries = summary.top_countries.map(c => [c.country, Number(c.n) || 0]);
+    totalCountryEvents = topCountries.reduce((s, [, n]) => s + n, 0);
+  } else {
+    const countryCount = new Map();
+    filteredActs.forEach(a => {
+      const c = a.country || '—';
+      countryCount.set(c, (countryCount.get(c) || 0) + 1);
+    });
+    topCountries = [...countryCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    totalCountryEvents = topCountries.reduce((s, [, n]) => s + n, 0);
+  }
 
   // Hour of day
-  const hourCount = Array(24).fill(0);
-  filteredActs.forEach(a => {
-    hourCount[new Date(a.created_at).getHours()]++;
-  });
+  let hourCount;
+  if (summary && Array.isArray(summary.hourly) && summary.hourly.length === 24) {
+    hourCount = summary.hourly.map(n => Number(n) || 0);
+  } else {
+    hourCount = Array(24).fill(0);
+    filteredActs.forEach(a => { hourCount[new Date(a.created_at).getHours()]++; });
+  }
   const maxHour = Math.max(1, ...hourCount);
   const peakHour = hourCount.indexOf(Math.max(...hourCount));
 
   // Weekday
-  const weekCount = Array(7).fill(0);
+  let weekCount;
   const weekLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  filteredActs.forEach(a => {
-    weekCount[new Date(a.created_at).getDay()]++;
-  });
+  if (summary && Array.isArray(summary.weekday) && summary.weekday.length === 7) {
+    weekCount = summary.weekday.map(n => Number(n) || 0);
+  } else {
+    weekCount = Array(7).fill(0);
+    filteredActs.forEach(a => { weekCount[new Date(a.created_at).getDay()]++; });
+  }
   const maxWeek = Math.max(1, ...weekCount);
 
   // Growth chart — daily user count + cumulative
+  // v3.7.53 Phase B: ใช้ summary.daily + summary.new_users_daily (ครอบทุก row ใน DB)
+  // totalUsers cumulative ยังคำนวณจาก profiles (ที่ยังโหลดเต็ม)
   const days = period === 'today' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : period === 'quarter' ? 90 : 365;
   const dailyData = [];
+  const _summaryDailyMap = (summary && Array.isArray(summary.daily))
+    ? new Map(summary.daily.map(d => [String(d.day).slice(0, 10), Number(d.events) || 0]))
+    : null;
+  const _summaryNewUsersMap = (summary && Array.isArray(summary.new_users_daily))
+    ? new Map(summary.new_users_daily.map(d => [String(d.day).slice(0, 10), Number(d.n) || 0]))
+    : null;
   for (let d = days - 1; d >= 0; d--) {
     const dayStart = new Date(now - d * DAY);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(dayStart.getTime() + DAY);
-    const newUsers = profiles.filter(p => {
-      if (!p.created_at) return false;
-      const t = new Date(p.created_at).getTime();
-      return t >= dayStart.getTime() && t < dayEnd.getTime();
-    }).length;
-    const eventCount = activities.filter(a => {
-      const t = new Date(a.created_at).getTime();
-      return t >= dayStart.getTime() && t < dayEnd.getTime();
-    }).length;
-    // cumulative users up to end of day
+    const dayKey = dayStart.toISOString().slice(0, 10);
+    const newUsers = _summaryNewUsersMap
+      ? (_summaryNewUsersMap.get(dayKey) || 0)
+      : profiles.filter(p => {
+          if (!p.created_at) return false;
+          const t = new Date(p.created_at).getTime();
+          return t >= dayStart.getTime() && t < dayEnd.getTime();
+        }).length;
+    const eventCount = _summaryDailyMap
+      ? (_summaryDailyMap.get(dayKey) || 0)
+      : activities.filter(a => {
+          const t = new Date(a.created_at).getTime();
+          return t >= dayStart.getTime() && t < dayEnd.getTime();
+        }).length;
+    // cumulative users up to end of day (จาก profiles ที่ยังโหลดเต็ม)
     const totalUsers = profiles.filter(p => p.created_at && new Date(p.created_at).getTime() < dayEnd.getTime()).length;
     dailyData.push({
-      day: dayStart.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      }),
+      day: dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       newUsers,
       eventCount,
       totalUsers
@@ -8045,17 +8085,31 @@ function AdminDashboard({
     const g = (p.gender || '').toLowerCase();
     if (g === 'male') genderCount.male++;else if (g === 'female') genderCount.female++;else if (g) genderCount.other++;else genderCount.na++;
   });
+  // v3.7.53 Phase B: per-user stats ใช้ summary maps ถ้ามี (ครอบทุก row ใน DB)
   const eventsByUser = new Map();
-  activities.forEach(a => {
-    eventsByUser.set(a.user_id, (eventsByUser.get(a.user_id) || 0) + 1);
-  });
+  if (summary && summary.events_by_user && typeof summary.events_by_user === 'object') {
+    Object.keys(summary.events_by_user).forEach(uid => {
+      eventsByUser.set(uid, Number(summary.events_by_user[uid]) || 0);
+    });
+  } else {
+    activities.forEach(a => {
+      eventsByUser.set(a.user_id, (eventsByUser.get(a.user_id) || 0) + 1);
+    });
+  }
+  // user_last_seen + user_country จาก summary (ครอบทุก row); fallback ไป userActiveAt + activities filter
+  const _sumLastSeen = (summary && summary.user_last_seen && typeof summary.user_last_seen === 'object') ? summary.user_last_seen : null;
+  const _sumCountry = (summary && summary.user_country && typeof summary.user_country === 'object') ? summary.user_country : null;
   const usersWithMeta = profiles.map(p => {
-    const lastTs = userActiveAt.get(p.id);
+    const lastTsRaw = _sumLastSeen ? _sumLastSeen[p.id] : null;
+    const lastTs = lastTsRaw ? new Date(lastTsRaw).getTime() : userActiveAt.get(p.id);
+    const country = _sumCountry
+      ? (_sumCountry[p.id] || '—')
+      : ([...new Map(activities.filter(a => a.user_id === p.id && a.country).map(a => [a.country, true])).keys()][0] || '—');
     return {
       id: p.id,
       name: p.full_name || p.email || (p.id || '').slice(0, 8),
       email: p.email,
-      country: [...new Map(activities.filter(a => a.user_id === p.id && a.country).map(a => [a.country, true])).keys()][0] || '—',
+      country,
       age: p.age || '—',
       gender: p.gender || '—',
       lastSeen: lastTs ? new Date(lastTs) : null,
@@ -8068,17 +8122,31 @@ function AdminDashboard({
   const recentActs = filteredActs.slice(0, 50);
 
   // Geo points for map (deduped by user, last known location)
+  // v3.7.53 Phase B: ใช้ summary.user_geo (ครอบทุก row ใน DB); fallback activities filter
   const userGeo = new Map();
-  activities.forEach(a => {
-    if (a.latitude && a.longitude && !userGeo.has(a.user_id)) {
-      userGeo.set(a.user_id, {
-        lat: a.latitude,
-        lng: a.longitude,
-        country: a.country,
-        city: a.city
-      });
-    }
-  });
+  if (summary && Array.isArray(summary.user_geo) && summary.user_geo.length) {
+    summary.user_geo.forEach(g => {
+      if (g && g.user_id && !userGeo.has(g.user_id)) {
+        userGeo.set(g.user_id, {
+          lat: Number(g.lat),
+          lng: Number(g.lng),
+          country: g.country,
+          city: g.city
+        });
+      }
+    });
+  } else {
+    activities.forEach(a => {
+      if (a.latitude && a.longitude && !userGeo.has(a.user_id)) {
+        userGeo.set(a.user_id, {
+          lat: a.latitude,
+          lng: a.longitude,
+          country: a.country,
+          city: a.city
+        });
+      }
+    });
+  }
 
   // ── Action handlers ──
   const toggleBan = async user => {
