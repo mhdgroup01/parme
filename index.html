@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.42</title>
+<title>ພາລວຍ · Paruay v3.7.43</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.42" />
+<meta name="app-version" content="v3.7.43" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.42</div>
+    <div class="version-tag">v3.7.43</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.42';
+const APP_VERSION = 'v3.7.43';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -11647,6 +11647,10 @@ function Paruay() {
   // ถ้าเจอ error "column updated_at does not exist" (M ยังไม่รัน SQL) → disable cursor mode
   // สำหรับ session นี้ ใช้ full poll ตลอด (ไม่ retry cursor mode ใน poll ถัดไป)
   const cursorDisabledRef = useRef(false);
+  // v3.7.43 — periodic full reconcile (ทุก 10 polls = ~90s)
+  // เป็น safety net จับ delete ที่ realtime พลาด (cursor delta ไม่เห็น row ที่หายไป)
+  const pollCountRef = useRef(0);
+  const POLL_FULL_RECONCILE_EVERY = 10;
   const [showIOUList, setShowIOUList] = useState(false);
   const [splitEnabled, setSplitEnabled] = useState(false);
   // splitFriends is now [{id, name}] — me is implicit (ME_ID)
@@ -12347,6 +12351,12 @@ function Paruay() {
       iouCursorRef.current = null;
       cursorUserRef.current = userId;
     }
+    // v3.7.43 — periodic full reconcile (จับ delete ที่ cursor delta พลาด)
+    pollCountRef.current = (pollCountRef.current + 1) % POLL_FULL_RECONCILE_EVERY;
+    if (pollCountRef.current === 0) {
+      txCursorRef.current = null;
+      iouCursorRef.current = null;
+    }
     try {
       // 1) Notifications — detect new, toast, refresh state
       const {
@@ -12452,7 +12462,7 @@ function Paruay() {
       // ถ้า SQL ยังไม่รัน (column updated_at ไม่มี) → fallback full poll (sticky disable)
       const useCursorIou = !cursorDisabledRef.current && iouCursorRef.current;
       const iouQ = useCursorIou
-        ? supabase.from('ious').select('*').eq('user_id', userId).gt('updated_at', iouCursorRef.current).limit(500)
+        ? supabase.from('ious').select('*').eq('user_id', userId).gt('updated_at', iouCursorRef.current).order('updated_at', { ascending: true }).limit(500)
         : supabase.from('ious').select('*').eq('user_id', userId).order('created_at', { ascending: false });
       const { data: iouRows, error: iouErr } = await iouQ;
       let iouCount = 0;
@@ -12479,7 +12489,8 @@ function Paruay() {
           setIOUs(iouRows.map(iouFromRow));
           if (!cursorDisabledRef.current) {
             const maxU = iouRows.reduce((m, r) => (r.updated_at && r.updated_at > m) ? r.updated_at : m, '');
-            iouCursorRef.current = maxU || new Date().toISOString();
+            // v3.7.43 — ไม่ seed ถ้าตารางว่าง (กัน client-clock skew ทำให้ row ใหม่หาย)
+            if (maxU) iouCursorRef.current = maxU;
           }
         }
       }
@@ -12488,7 +12499,7 @@ function Paruay() {
       // v3.7.42 cursor polling + .eq('user_id') defense-in-depth (RLS already scopes)
       const useCursorTx = !cursorDisabledRef.current && txCursorRef.current;
       const txQ = useCursorTx
-        ? supabase.from('transactions').select('*').eq('user_id', userId).gt('updated_at', txCursorRef.current).limit(500)
+        ? supabase.from('transactions').select('*').eq('user_id', userId).gt('updated_at', txCursorRef.current).order('updated_at', { ascending: true }).limit(500)
         : supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }).order('created_at', { ascending: false });
       const { data: txRows, error: txErr } = await txQ;
       let txCount = 0;
@@ -12526,7 +12537,8 @@ function Paruay() {
           setTransactions([...localOnly, ...serverTxs]);
           if (!cursorDisabledRef.current) {
             const maxU = txRows.reduce((m, r) => (r.updated_at && r.updated_at > m) ? r.updated_at : m, '');
-            txCursorRef.current = maxU || new Date().toISOString();
+            // v3.7.43 — ไม่ seed ถ้าตารางว่าง (กัน client-clock skew ทำให้ row ใหม่หาย)
+            if (maxU) txCursorRef.current = maxU;
           }
         }
       }
@@ -14163,6 +14175,9 @@ function Paruay() {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
         lastActivity = Date.now(); // waking counts as activity → resume fast cadence
+        // v3.7.43 — force full reconcile ตอนกลับมาที่ tab (จับ delete ที่พลาดตอนพักหน้าจอ)
+        txCursorRef.current = null;
+        iouCursorRef.current = null;
         pollForUpdates(userId, {
           announce: true
         });
