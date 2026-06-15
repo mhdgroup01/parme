@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.55</title>
+<title>ພາລວຍ · Paruay v3.7.56</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.55" />
+<meta name="app-version" content="v3.7.56" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.55</div>
+    <div class="version-tag">v3.7.56</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.55';
+const APP_VERSION = 'v3.7.56';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -12010,6 +12010,7 @@ function Paruay() {
       } else {
         setCurrentUser(null);
         setAuthState('logged-out');
+        setNeedsProfile(false); setProfileDob(''); setProfileGender(''); setProfileError(''); // v3.7.56 — reset modal state กัน stale ตอน sign-out หรือ multi-tab
       }
     });
     return () => {
@@ -14389,10 +14390,10 @@ function Paruay() {
         data: { gender: profileGender, age: ageNum, dob: profileDob, profile_completed_at: new Date().toISOString() }
       });
       if (e1) throw e1;
-      // sync profiles table ด้วย (admin dashboard อ่านจากนี่)
-      try {
-        await supabase.from('profiles').update({ gender: profileGender, age: ageNum }).eq('id', currentUser.id);
-      } catch (_) {}
+      // v3.7.56 — sync profiles table (admin dashboard อ่าน gender/age จากนี่)
+      // ใช้ upsert + เช็ก error → ถ้าล้ม โยน error ให้ user เห็น (ไม่ swallow เงียบ)
+      const { error: e2 } = await supabase.from('profiles').upsert({ id: currentUser.id, gender: profileGender, age: ageNum }, { onConflict: 'id' });
+      if (e2) throw e2;
       setCurrentUser(prev => prev ? { ...prev, gender: profileGender, age: ageNum } : prev);
       setNeedsProfile(false);
       setProfileDob(''); setProfileGender('');
@@ -28707,7 +28708,20 @@ function Paruay() {
           color: '#FFFDF7', fontSize: 15, fontWeight: 800,
           cursor: (profileSaving || !profileDob || !profileGender) ? 'default' : 'pointer'
         }
-      }, profileSaving ? '...' : (t.auth_save || 'บันทึก'))
+      }, profileSaving ? '...' : (t.auth_save || 'บันทึก')),
+      // v3.7.56 — sign out fallback (กัน user ติดถ้า save ล้มซ้ำๆ)
+      h('button', {
+        type: 'button',
+        onClick: () => { try { supabase.auth.signOut(); } catch (_) {} setNeedsProfile(false); setProfileDob(''); setProfileGender(''); setProfileError(''); },
+        disabled: profileSaving,
+        className: langClass,
+        style: {
+          width: '100%', marginTop: 8, padding: '10px 16px', borderRadius: 12,
+          border: '1px solid rgba(127,85,57,0.25)', background: 'transparent',
+          color: '#7F5539', fontSize: 13, fontWeight: 600,
+          cursor: profileSaving ? 'default' : 'pointer'
+        }
+      }, t.auth_signout || 'ออกจากระบบ')
     ));
   })());
 }
