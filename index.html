@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.51</title>
+<title>ພາລວຍ · Paruay v3.7.52</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.51" />
+<meta name="app-version" content="v3.7.52" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.51</div>
+    <div class="version-tag">v3.7.52</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.51';
+const APP_VERSION = 'v3.7.52';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -29973,7 +29973,7 @@ function POSModal({
   const saleBillNo = {};
   const _sortedAsc = [...(sales || [])].sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
   const _absCount = (totals && Number(totals.saleCount) > 0) ? Number(totals.saleCount) : _sortedAsc.length;
-  const _offset = _absCount - _sortedAsc.length; // เลขฐานของบิลเก่าสุดใน window
+  const _offset = Math.max(0, _absCount - _sortedAsc.length); // เลขฐานของบิลเก่าสุดใน window (กัน "#0" ตอน totals refetch debounce 1s)
   _sortedAsc.forEach((s, i) => {
     saleBillNo[s.id] = _offset + i + 1;
   });
@@ -30133,7 +30133,7 @@ function POSModal({
       table: activeBill && activeBill.table || null
     });
     if (shopInfo && shopInfo.afterSalePopup !== false) {
-      setReceiptSale({ id: '__justsold__', items: soldItems, total: grandTotal, subTotal: total, discount: discAmt, svc: svcAmt, svcPct: svcAmt > 0 ? svcPct : 0, seller: activeSeller || null, table: activeBill && activeBill.table || null, createdAt: new Date().toISOString(), date: new Date().toISOString().slice(0, 10), billNo: (sales || []).length + 1 });
+      setReceiptSale({ id: '__justsold__', items: soldItems, total: grandTotal, subTotal: total, discount: discAmt, svc: svcAmt, svcPct: svcAmt > 0 ? svcPct : 0, seller: activeSeller || null, table: activeBill && activeBill.table || null, createdAt: new Date().toISOString(), date: new Date().toISOString().slice(0, 10), billNo: ((totals && Number(totals.saleCount)) || (sales || []).length) + 1 });
     }
     if (activeBill && activeBill.table) rotateToken(activeBill.table);
     finishActiveBill();
