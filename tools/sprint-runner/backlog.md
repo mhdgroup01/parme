@@ -14,13 +14,7 @@
 
 - [x] 2.4 admin dashboard summary RPC — Phase A DONE in c8c6f78 (v3.7.50, additive). Phase B รอ M ตัดสินใจ 4 คำถามใน docs/sprint-stopped/
 
-## Phase B (รอ design decisions จาก M)
-
-- [ ] 2.4 Phase B — ตัด download user_activity 10k → ใช้ RPC ครอบทุก stat. ต้องตอบ 4 คำถามใน docs/sprint-stopped/2-4-admin-dashboard-summary-rpc-rpc-admin-dashboar.md ก่อน:
-  - (1) RPC return อะไรบ้าง? (aggregates / + geo / + recent / + daily series)
-  - (2) ยอม re-source growth chart, country/hour/weekday จาก RPC ไหม?
-  - (3) CSV export: recent N / server-export?
-  - (4) `activities` state ยังต้อง raw array (เพื่อ map + filteredActs) → ตัด download ไม่ได้จริงไหม?
+- [x] 2.4 Phase B — re-source charts จาก RPC. DONE in fab2857 (v3.7.53) + a7bd640 (v3.7.54 TZ+period fix). activities ลด 10k→5k, charts ครอบทุก row ใน DB
 
 ## เสร็จแล้ว (history)
 
