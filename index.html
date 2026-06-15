@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.54</title>
+<title>ພາລວຍ · Paruay v3.7.55</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.54" />
+<meta name="app-version" content="v3.7.55" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.54</div>
+    <div class="version-tag">v3.7.55</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.54';
+const APP_VERSION = 'v3.7.55';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -4470,6 +4470,11 @@ const I18N = {
     gender_other: 'ອື່ນໆ',
     auth_age_invalid: 'ກະລຸນາໃສ່ອາຍຸທີ່ຖືກຕ້ອງ',
     auth_select_gender: 'ກະລຸນາເລືອກເພດ',
+    auth_complete_profile: 'ກະລຸນາຕື່ມຂໍ້ມູນເພີ່ມ',
+    auth_complete_profile_hint: 'ກະລຸນາຕື່ມວັນເກີດ ແລະ ເພດ ກ່ອນເລີ່ມໃຊ້ງານ (ຄັ້ງດຽວ)',
+    auth_dob: 'ວັນເດືອນປີເກີດ',
+    auth_age_label: 'ອາຍຸ',
+    auth_save: 'ບັນທຶກ',
     age_years: 'ປີ',
     install_banner_title: '📱 ຕິດຕັ້ງເປັນແອັບ',
     install_banner_sub: 'ເພີ່ມລົງໜ້າຈໍຫຼັກ ໃຊ້ໄດ້ໄວຂຶ້ນ',
@@ -5180,6 +5185,11 @@ const I18N = {
     gender_other: 'อื่นๆ',
     auth_age_invalid: 'กรุณาใส่อายุที่ถูกต้อง',
     auth_select_gender: 'กรุณาเลือกเพศ',
+    auth_complete_profile: 'กรอกข้อมูลเพิ่ม',
+    auth_complete_profile_hint: 'กรอกวันเกิดและเพศก่อนเริ่มใช้งาน (ครั้งเดียว)',
+    auth_dob: 'วันเดือนปีเกิด',
+    auth_age_label: 'อายุ',
+    auth_save: 'บันทึก',
     age_years: 'ปี',
     install_banner_title: '📱 ติดตั้งเป็นแอป',
     install_banner_sub: 'เพิ่มลงหน้าจอหลัก ใช้งานเร็วขึ้น',
@@ -5890,6 +5900,11 @@ const I18N = {
     gender_other: 'Other',
     auth_age_invalid: 'Please enter a valid age',
     auth_select_gender: 'Please select a gender',
+    auth_complete_profile: 'Complete your profile',
+    auth_complete_profile_hint: 'Enter your date of birth and gender to continue (one-time)',
+    auth_dob: 'Date of birth',
+    auth_age_label: 'Age',
+    auth_save: 'Save',
     age_years: 'yrs',
     install_banner_title: '📱 Install as App',
     install_banner_sub: 'Add to Home Screen for faster access',
@@ -6593,6 +6608,11 @@ const I18N = {
     gender_other: '其他',
     auth_age_invalid: '请输入有效年龄',
     auth_select_gender: '请选择性别',
+    auth_complete_profile: '完善个人信息',
+    auth_complete_profile_hint: '请填写出生日期和性别后开始使用(仅一次)',
+    auth_dob: '出生日期',
+    auth_age_label: '年龄',
+    auth_save: '保存',
     age_years: '岁',
     install_banner_title: '📱 安装为应用',
     install_banner_sub: '添加到主屏幕以便更快访问',
@@ -11911,6 +11931,13 @@ function Paruay() {
   const [authDob, setAuthDob] = useState(''); // v2.6.0 — YYYY-MM-DD
   const [authSignupSuccess, setAuthSignupSuccess] = useState(false); // v2.6.0 — show check-email screen
   const [authLoading, setAuthLoading] = useState(false);
+  // v3.7.55 — บังคับ Google signup กรอก DOB + gender (ครั้งแรกหลัง OAuth)
+  // user signup ทาง email กรอกครบอยู่แล้ว; Google ข้าม form นั้นไป → ขาดข้อมูล admin dashboard
+  const [needsProfile, setNeedsProfile] = useState(false);
+  const [profileDob, setProfileDob] = useState('');
+  const [profileGender, setProfileGender] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
   // ── CLOUD SYNC STATE (v2.0.0-alpha.2) ──
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState('');
@@ -11946,6 +11973,11 @@ function Paruay() {
           isAdmin: prev && prev.id === u.id ? prev.isAdmin : undefined
         }));
         setAuthState('logged-in');
+        // v3.7.55 — Google OAuth users ข้าม signup form → meta.gender/dob ว่าง
+        // บังคับกรอกครั้งเดียวก่อนใช้แอป (email user ข้ามเสมอ เพราะกรอกตอนสมัครแล้ว)
+        if (!meta.gender || !meta.dob) {
+          setNeedsProfile(true);
+        }
       } else {
         setAuthState('logged-out');
       }
@@ -14341,6 +14373,34 @@ function Paruay() {
       }
     });
     if (error) setAuthError(error.message);
+  };
+
+  // v3.7.55 — submit profile completion (Google user รอบแรก)
+  const submitProfileCompletion = async () => {
+    setProfileError('');
+    if (!supabase || !currentUser) { setProfileError('not_ready'); return; }
+    if (!profileGender) { setProfileError(t.auth_select_gender || 'Please select gender'); return; }
+    if (!profileDob) { setProfileError(t.auth_age_invalid || 'Please enter date of birth'); return; }
+    const ageNum = calcAgeFromDob(profileDob);
+    if (!ageNum || ageNum < 1 || ageNum > 120) { setProfileError(t.auth_age_invalid || 'Invalid age'); return; }
+    setProfileSaving(true);
+    try {
+      const { error: e1 } = await supabase.auth.updateUser({
+        data: { gender: profileGender, age: ageNum, dob: profileDob, profile_completed_at: new Date().toISOString() }
+      });
+      if (e1) throw e1;
+      // sync profiles table ด้วย (admin dashboard อ่านจากนี่)
+      try {
+        await supabase.from('profiles').update({ gender: profileGender, age: ageNum }).eq('id', currentUser.id);
+      } catch (_) {}
+      setCurrentUser(prev => prev ? { ...prev, gender: profileGender, age: ageNum } : prev);
+      setNeedsProfile(false);
+      setProfileDob(''); setProfileGender('');
+    } catch (e) {
+      setProfileError(e.message || String(e));
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   // Email + password sign-in / sign-up (v2.1.0)
@@ -28583,7 +28643,73 @@ function Paruay() {
       setShowFriends(true);
     },
     onClose: () => setShowGame(false)
-  }));
+  }), needsProfile && currentUser && (() => {
+    // v3.7.55 — บังคับ Google OAuth user กรอก DOB + gender ครั้งเดียว
+    const h = React.createElement;
+    const GENDERS = [
+      { id: 'male', label: t.gender_male || 'Male' },
+      { id: 'female', label: t.gender_female || 'Female' },
+      { id: 'other', label: t.gender_other || 'Other' }
+    ];
+    return h('div', {
+      style: { position: 'fixed', inset: 0, background: 'rgba(20,15,10,0.65)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
+    }, h('div', {
+      style: { background: '#FFFDF7', borderRadius: 18, padding: 24, maxWidth: 380, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.35)' }
+    },
+      h('div', { className: langClass, style: { fontSize: 18, fontWeight: 800, color: '#1B4332', marginBottom: 6 } }, t.auth_complete_profile || 'กรอกข้อมูลเพิ่ม'),
+      h('div', { className: langClass, style: { fontSize: 13, color: '#7F5539', marginBottom: 18, lineHeight: 1.5 } }, t.auth_complete_profile_hint || 'กรอกวันเกิดและเพศก่อนเริ่มใช้งาน (ครั้งเดียว)'),
+      h('div', { className: langClass, style: { fontSize: 11, color: '#7F5539', marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' } }, t.auth_dob || t.auth_birthdate || 'วันเดือนปีเกิด'),
+      h('input', {
+        type: 'date',
+        value: profileDob,
+        onChange: e => setProfileDob(e.target.value),
+        max: new Date().toISOString().slice(0, 10),
+        style: { width: '100%', padding: '12px 14px', marginBottom: 4, borderRadius: 11, border: '1px solid rgba(127,85,57,0.25)', background: '#FBF6E9', fontSize: 14, outline: 'none', boxSizing: 'border-box' }
+      }),
+      profileDob && calcAgeFromDob(profileDob) !== null && h('div', {
+        className: langClass,
+        style: { fontSize: 11, color: '#7F5539', marginBottom: 12, paddingLeft: 4 }
+      }, (t.auth_age_label || 'อายุ') + ': ' + calcAgeFromDob(profileDob)),
+      h('div', { className: langClass, style: { fontSize: 11, color: '#7F5539', marginTop: 8, marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' } }, t.auth_gender || 'เพศ'),
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 } },
+        GENDERS.map(g => {
+          const sel = profileGender === g.id;
+          return h('button', {
+            key: g.id,
+            type: 'button',
+            onClick: () => setProfileGender(g.id),
+            className: langClass,
+            style: {
+              padding: '10px 8px',
+              borderRadius: 11,
+              border: '1px solid ' + (sel ? '#1B4332' : 'rgba(127,85,57,0.25)'),
+              background: sel ? '#1B4332' : '#FBF6E9',
+              color: sel ? '#FFFDF7' : '#1B4332',
+              fontSize: 13,
+              fontWeight: sel ? 800 : 600,
+              cursor: 'pointer'
+            }
+          }, g.label);
+        })
+      ),
+      profileError && h('div', {
+        className: langClass,
+        style: { fontSize: 12, color: '#AA3C28', marginBottom: 10, padding: 8, background: 'rgba(170,60,40,0.08)', borderRadius: 8 }
+      }, '⚠ ' + profileError),
+      h('button', {
+        type: 'button',
+        onClick: submitProfileCompletion,
+        disabled: profileSaving || !profileDob || !profileGender,
+        className: langClass,
+        style: {
+          width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none',
+          background: (profileSaving || !profileDob || !profileGender) ? '#C8B8A0' : '#1B4332',
+          color: '#FFFDF7', fontSize: 15, fontWeight: 800,
+          cursor: (profileSaving || !profileDob || !profileGender) ? 'default' : 'pointer'
+        }
+      }, profileSaving ? '...' : (t.auth_save || 'บันทึก'))
+    ));
+  })());
 }
 
 // v3.4.93 — Card games hub. Host (room creator) can play on behalf of anyone + add/remove players anytime. draw52 tracks card owners by id.
