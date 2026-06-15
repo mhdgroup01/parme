@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.48</title>
+<title>ພາລວຍ · Paruay v3.7.49</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.48" />
+<meta name="app-version" content="v3.7.49" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.48</div>
+    <div class="version-tag">v3.7.49</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.48';
+const APP_VERSION = 'v3.7.49';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -11522,6 +11522,9 @@ function Paruay() {
   // v3.7.40 — server-aggregated totals (correctness fix: client reduce ใช้ sales.limit(500) → ผิดเมื่อ > 500 บิล)
   // ค่า null = RPC ยังไม่พร้อม → POSModal fallback ไปใช้ client reduce
   const [posTotals, setPosTotals] = useState(null);
+  // v3.7.49 — load-more pagination ประวัติการขาย: loadShopData ดึง 500 บิลล่าสุด ปุ่ม "โหลดเพิ่ม" ดึงเก่ากว่านั้นทีละ 100
+  const [posSalesHasMore, setPosSalesHasMore] = useState(false);
+  const [posSalesLoadingMore, setPosSalesLoadingMore] = useState(false);
   // v3.4.73 — restaurant mode: number of tables (0 = no tables / regular sales)
   const [posTableCount, setPosTableCount] = useState(() => {
     try {
@@ -16297,6 +16300,8 @@ function Paruay() {
         date: (r.created_at || '').slice(0, 10),
         createdAt: r.created_at
       })));
+      // v3.7.49 — ถ้าได้ครบ 500 แสดงว่าอาจมีบิลเก่ากว่านี้ → เปิดปุ่ม "โหลดเพิ่ม"
+      if (salesD) setPosSalesHasMore(salesD.length >= 500);
       if (shopRow) {
         const cloudTC = parseInt(shopRow.table_count, 10);
         if (!isNaN(cloudTC) && cloudTC > 0) {
@@ -16329,6 +16334,37 @@ function Paruay() {
         saleCount: Number(row.sale_count) || 0
       });
     } catch (_) { setPosTotals(null); }
+  };
+  // v3.7.49 — load-more: ดึง pos_sales เก่ากว่าบิลล่างสุดที่มีอยู่ ทีละ 100 บิล (ไม่ใช้ infinite scroll — single-file PWA เน้นเรียบง่าย)
+  const loadMorePosSales = async () => {
+    if (!supabase || !posShopId || posSalesLoadingMore) return;
+    // หา createdAt ที่เก่าที่สุดที่มีในมือ
+    let oldest = null;
+    for (const s of posSales) {
+      if (s.createdAt && (oldest === null || s.createdAt < oldest)) oldest = s.createdAt;
+    }
+    if (!oldest) { setPosSalesHasMore(false); return; }
+    setPosSalesLoadingMore(true);
+    try {
+      const { data, error } = await supabase.from('pos_sales').select('*').eq('shop', posShopId)
+        .lt('created_at', oldest).order('created_at', { ascending: false }).limit(100);
+      if (error || !data) { setPosSalesLoadingMore(false); return; }
+      const mapped = data.map(r => ({
+        id: r.id, items: r.items || [], total: Number(r.total) || 0,
+        costTotal: Number(r.cost_total) || 0, seller: r.seller_name || null,
+        table: r.table_no == null ? null : (Number.isNaN(parseInt(r.table_no, 10)) ? r.table_no : parseInt(r.table_no, 10)),
+        subTotal: r.sub_total == null ? null : Number(r.sub_total),
+        discount: Number(r.discount) || 0, svc: Number(r.svc) || 0, svcPct: Number(r.svc_pct) || 0,
+        date: (r.created_at || '').slice(0, 10), createdAt: r.created_at
+      }));
+      setPosSales(prev => {
+        const seen = new Set((prev || []).map(x => x.id));
+        const fresh = mapped.filter(x => !seen.has(x.id));
+        return (prev || []).concat(fresh);
+      });
+      setPosSalesHasMore(data.length >= 100);
+    } catch (_) {}
+    setPosSalesLoadingMore(false);
   };
   // v3.7.41 — optimistic update posTotals หลัง local write (instant UX + ทำงานตอน offline ด้วย)
   // sign: +1 = insert sale, -1 = delete sale. realtime echo จะ RPC refetch ทับเป็น canonical ภายหลัง
@@ -28437,6 +28473,9 @@ function Paruay() {
     onSaveCategories: savePosCategories,
     sales: posSales,
     totals: posTotals,
+    salesHasMore: posSalesHasMore,
+    salesLoadingMore: posSalesLoadingMore,
+    onLoadMoreSales: loadMorePosSales,
     linked: posLinked,
     onSaveProducts: savePosProducts,
     onCompleteSale: posCompleteSale,
@@ -29436,6 +29475,9 @@ function POSModal({
   products,
   sales,
   totals,
+  salesHasMore,
+  salesLoadingMore,
+  onLoadMoreSales,
   linked,
   categories,
   tableCount,
@@ -32294,7 +32336,9 @@ function POSModal({
   }, CUR + ' ' + fmt((it.price || 0) * it.qty)))), ((s.discount || 0) > 0 || (s.svc || 0) > 0) ? h("div", { className: langClass, style: { borderTop: '1px dashed rgba(127,85,57,0.2)', marginTop: 3, paddingTop: 5, display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 } },
     h("div", { style: { display: 'flex', justifyContent: 'space-between', color: '#A89580' } }, h("span", null, lang === 'th' ? 'รวมค่าสินค้า' : lang === 'en' ? 'Subtotal' : lang === 'zh' ? '小计' : 'ລວມຄ່າສິນຄ້າ'), h("span", { className: "display" }, CUR + ' ' + fmt(s.subTotal != null ? s.subTotal : (s.total || 0) + (s.discount || 0) - (s.svc || 0)))),
     (s.discount || 0) > 0 ? h("div", { style: { display: 'flex', justifyContent: 'space-between', color: '#AA3C28' } }, h("span", null, lang === 'th' ? 'ส่วนลด' : lang === 'en' ? 'Discount' : lang === 'zh' ? '折扣' : 'ສ່ວນຫຼຸດ'), h("span", { className: "display" }, '−' + CUR + ' ' + fmt(s.discount))) : null,
-    (s.svc || 0) > 0 ? h("div", { style: { display: 'flex', justifyContent: 'space-between', color: '#B26B00' } }, h("span", null, 'Service' + (s.svcPct ? ' ' + s.svcPct + '%' : '')), h("span", { className: "display" }, '+' + CUR + ' ' + fmt(s.svc))) : null) : null)))))), activeOrderId && (() => {
+    (s.svc || 0) > 0 ? h("div", { style: { display: 'flex', justifyContent: 'space-between', color: '#B26B00' } }, h("span", null, 'Service' + (s.svcPct ? ' ' + s.svcPct + '%' : '')), h("span", { className: "display" }, '+' + CUR + ' ' + fmt(s.svc))) : null) : null)))))), (sales.length > 0 && !saleSearch.trim() && (salesHasMore || (totals && totals.saleCount > sales.length)) ? h("div", { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 10 } },
+    h("div", { className: langClass, style: { fontSize: 11, color: '#A89580' } }, (lang === 'th' ? 'แสดง ' : lang === 'en' ? 'Showing ' : lang === 'zh' ? '显示 ' : 'ສະແດງ ') + sales.length + ' / ' + ((totals && totals.saleCount) ? totals.saleCount : sales.length) + (lang === 'th' ? ' บิล' : lang === 'en' ? ' bills' : lang === 'zh' ? ' 单' : ' ບິນ')),
+    salesHasMore ? h("button", { onClick: onLoadMoreSales, disabled: salesLoadingMore, className: langClass, style: { padding: '9px 22px', borderRadius: 10, border: '1.5px solid rgba(45,106,79,0.3)', background: '#EEF5EF', color: '#1B4332', fontSize: 13, fontWeight: 800, opacity: salesLoadingMore ? 0.6 : 1, cursor: salesLoadingMore ? 'default' : 'pointer' } }, salesLoadingMore ? (lang === 'th' ? 'กำลังโหลด…' : lang === 'en' ? 'Loading…' : lang === 'zh' ? '加载中…' : 'ກຳລັງໂຫຼດ…') : ('⬇️ ' + (lang === 'th' ? 'โหลดเพิ่ม' : lang === 'en' ? 'Load more' : lang === 'zh' ? '加载更多' : 'ໂຫຼດເພີ່ມ'))) : null) : null), activeOrderId && (() => {
     const o = pendingOrders.find(x => x.id === activeOrderId);
     if (!o) return null;
     const baseIts = Array.isArray(o.items) ? o.items : [];
