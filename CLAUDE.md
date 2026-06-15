@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: Supabase** (region Singapore) — auth, realtime, postgres
 
 ## เวอร์ชันปัจจุบัน
-v3.7.35
+v3.7.40 (sprint 2026-06-15/16 — research-backed optimization)
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -91,9 +91,19 @@ GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) 
 - `fxToPrimary(st, sym, codeHint, primarySym, primaryCodeHint)` → **สกุลหลักต่อหน่วย** (ใช้กีบเป็นสะพาน) ถ้าสกุลหลัก = กีบ จะได้ผลเท่า fxKipPerUnit เป๊ะ
 - กราฟใช้คอลัมน์ `fxk_<sym>` = ค่าที่แปลงเป็นสกุลหลักแล้ว, tooltip แสดง `≈ CUR fmt(...)`
 
-## งานค้าง (ณ v3.7.35)
-- ทดสอบ POS sync 2 เครื่อง (open/request bill, move-merge โต๊ะ, food status, discount/SC, QR order, kitchen ticket, offline conflict)
+## งานค้าง (ณ v3.7.40)
 - ขยาย product catalog (รับรูป → ลบพื้นหลังดำ → webp 256px q80 → อัปเดต `catalog/catalog.json` + zip ไม่ต้อง bump แอป)
+- **2.3 cursor polling** (transactions/ious) — รอ SQL: ADD `updated_at` + `deleted_at` columns + trigger + composite indexes
+- **2.4 admin dashboard RPC** — server-side aggregate แทน raw download 10k+ rows
+- **Phase 2.1b / 2.2b** ตัด `loadDetail()/loadShopData()` ออกจาก local writes (ต้องการ optimistic update เต็ม) — ทำเมื่อมั่นใจ delta-merge เสถียร
+
+## sprint ที่ทำแล้ว (2026-06-15/16)
+ดู `docs/2026-06-15-research-action-plan.md` สำหรับรายละเอียดงานวิจัย (52-agent workflow + adversarial verify)
+- v3.7.37 — security probe fix + preconnect + decision records
+- v3.7.37 — SQL: 25 indexes (RLS, .or() patterns, POS, admin) — `tools/migrations/2026-06-15-research-indexes.sql`
+- v3.7.38 — family realtime delta-merge (7 RTT/event → 0)
+- v3.7.39 — POS realtime delta-merge (4-query refetch → 0)
+- v3.7.40 — POS sales totals RPC (correctness fix: ยอด > 500 บิลผิดเงียบๆ) — `tools/migrations/2026-06-16-pos-sales-totals-rpc.sql`
 
 ## สิ่งที่ไม่ควรทำ
 - ห้ามแตก index.html เป็นหลายไฟล์
