@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.47</title>
+<title>ພາລວຍ · Paruay v3.7.48</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.47" />
+<meta name="app-version" content="v3.7.48" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.47</div>
+    <div class="version-tag">v3.7.48</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.47';
+const APP_VERSION = 'v3.7.48';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -10035,6 +10035,8 @@ function FamilyScreen(props) {
   const [editCats, setEditCats] = useState({ income: [], expense: [] });
   const [range, setRange] = useState('day');
   const openRef = useRef(null);
+  // v3.7.48 — fix scope: justDeletedFamRef ต้องอยู่ใน FamilyScreen (เดิม v3.7.47 ผิดไปอยู่ใน Paruay() ทำให้ ReferenceError ทุก delete + realtime event)
+  const justDeletedFamRef = useRef({});
 
   const flash = m => { setMsg(m); setTimeout(() => setMsg(''), 2200); };
 
@@ -11641,11 +11643,10 @@ function Paruay() {
   const notifsInitializedRef = useRef(false);
   const pollTimerRef = useRef(null);
   const pollBusyRef = useRef(false);
-  // v3.7.47 — race protection สำหรับทุก realtime channel ที่ใช้ merge-by-id pattern
-  // ลบ local → debounce cloud DELETE → ระหว่างนั้น remote UPDATE/INSERT มาถึง
-  // → handler ไม่รู้ว่าเพิ่งลบ → re-add → "กลับมาเหมือนเดิม"
+  // v3.7.47 — race protection: ลบ local → debounce cloud DELETE → ระหว่างนั้น remote UPDATE/INSERT
+  // มาถึง → handler ไม่รู้ว่าเพิ่งลบ → re-add → "กลับมาเหมือนเดิม"
   // แก้: เก็บ id ที่เพิ่งลบ 10 วิ; merge handler check ก่อน → ignore
-  const justDeletedFamRef = useRef({});  // family: tx/msg/iou ids
+  // หมายเหตุ v3.7.48: justDeletedFamRef ย้ายไป FamilyScreen แล้ว (scope ผิด v3.7.47)
   const justDeletedPosRef = useRef({});  // POS: sale/product/category ids
   // v3.7.42 — cursor refs สำหรับ delta polling: เก็บ max(updated_at) ที่เห็นล่าสุด
   // null = ยังไม่ทำ first poll → next poll = full load (เหมือนเดิม)
