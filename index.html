@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.49</title>
+<title>ພາລວຍ · Paruay v3.7.50</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.49" />
+<meta name="app-version" content="v3.7.50" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.49</div>
+    <div class="version-tag">v3.7.50</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.49';
+const APP_VERSION = 'v3.7.50';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -7739,6 +7739,9 @@ function AdminDashboard({
   const [error, setError] = useState('');
   const [activities, setActivities] = useState([]);
   const [profiles, setProfiles] = useState([]);
+  // v3.7.50 — server-side summary (DAU/WAU/MAU ครอบทุก row ใน DB ไม่จำกัด 10k)
+  // null = RPC ยังไม่พร้อม (ก่อน M รัน SQL) → fallback ใช้ client-compute เดิม
+  const [summary, setSummary] = useState(null);
   const [tab, setTab] = useState('overview'); // overview | users | activity | map | growth
   const [verified, setVerified] = useState(false);
   const [period, setPeriod] = useState('week'); // today | week | month | quarter | all
@@ -7779,6 +7782,11 @@ function AdminDashboard({
       if (profRes.error) throw profRes.error;
       setActivities(actRes.data || []);
       setProfiles(profRes.data || []);
+      // v3.7.50 — Phase A: fetch server-side summary (graceful fallback ถ้า RPC ยังไม่มี)
+      try {
+        const { data: sumD, error: sumE } = await supabase.rpc('admin_dashboard_summary', { p_since: since });
+        if (!sumE && sumD) setSummary(sumD);
+      } catch (_) { /* fallback to client-compute */ }
     } catch (e) {
       if (e && (e.message === 'not_authenticated' || e.message === 'not_admin')) {
         setError(t.admin_access_denied);
@@ -7936,18 +7944,26 @@ function AdminDashboard({
     const prev = userActiveAt.get(a.user_id) || 0;
     if (ts > prev) userActiveAt.set(a.user_id, ts);
   });
-  let activeToday = 0,
-    activeWeek = 0,
-    activeMonth = 0;
+  let activeTodayLocal = 0,
+    activeWeekLocal = 0,
+    activeMonthLocal = 0;
   userActiveAt.forEach(ts => {
-    if (now - ts < DAY) activeToday++;
-    if (now - ts < 7 * DAY) activeWeek++;
-    if (now - ts < 30 * DAY) activeMonth++;
+    if (now - ts < DAY) activeTodayLocal++;
+    if (now - ts < 7 * DAY) activeWeekLocal++;
+    if (now - ts < 30 * DAY) activeMonthLocal++;
   });
 
   // New users (last 7 days)
-  const newUsersWeek = profiles.filter(p => p.created_at && now - new Date(p.created_at).getTime() < 7 * DAY).length;
-  const newUsersToday = profiles.filter(p => p.created_at && now - new Date(p.created_at).getTime() < DAY).length;
+  const newUsersWeekLocal = profiles.filter(p => p.created_at && now - new Date(p.created_at).getTime() < 7 * DAY).length;
+  const newUsersTodayLocal = profiles.filter(p => p.created_at && now - new Date(p.created_at).getTime() < DAY).length;
+
+  // v3.7.50 — Phase A: ใช้ค่า server-side ถ้า RPC พร้อม (ครอบทุก row ใน DB)
+  // fallback ไป client-compute (จำกัด 10k activity จาก loadData)
+  const activeToday = summary ? Number(summary.dau) || 0 : activeTodayLocal;
+  const activeWeek = summary ? Number(summary.wau) || 0 : activeWeekLocal;
+  const activeMonth = summary ? Number(summary.mau) || 0 : activeMonthLocal;
+  const newUsersWeek = summary ? Number(summary.new_users_week) || 0 : newUsersWeekLocal;
+  const newUsersToday = summary ? Number(summary.new_users_today) || 0 : newUsersTodayLocal;
 
   // Country breakdown
   const countryCount = new Map();
