@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.37</title>
+<title>ພາລວຍ · Paruay v3.7.38</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.37" />
+<meta name="app-version" content="v3.7.38" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.37</div>
+    <div class="version-tag">v3.7.38</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.37';
+const APP_VERSION = 'v3.7.38';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -10093,16 +10093,120 @@ function FamilyScreen(props) {
   useEffect(() => {
     if (!open || !open.family || !supabase) return undefined;
     const fid = open.family.id; openRef.current = fid; const fam = open.family;
+    // delta-merge: ไม่ refetch ทุกครั้ง realtime event มา (ลด 7 RTT/event → 0)
+    // local writes ยังเรียก loadDetail() เป็น safety net (instant UX) — Phase 2.1b ค่อยตัด
+    const fetchProfile = async (uid) => {
+      if (!uid) return;
+      try {
+        const { data } = await supabase.from('profiles').select('id, username, full_name').eq('id', uid).maybeSingle();
+        if (!data) return;
+        setOpen(prev => {
+          if (!prev || !prev.family || prev.family.id !== fid) return prev;
+          if (prev.profMap && prev.profMap[uid]) return prev;
+          return Object.assign({}, prev, { profMap: Object.assign({}, prev.profMap || {}, { [uid]: data }) });
+        });
+      } catch (_) {}
+    };
+    const ensureProfile = (uid) => {
+      if (!uid) return;
+      setOpen(prev => {
+        if (prev && (!prev.profMap || !prev.profMap[uid])) fetchProfile(uid);
+        return prev;
+      });
+    };
+    const mergeList = (key, payload, order) => {
+      if (openRef.current !== fid) return;
+      const evt = payload.eventType || payload.event;
+      const row = payload.new || payload.old;
+      if (!row || !row.id) return;
+      setOpen(prev => {
+        if (!prev || !prev.family || prev.family.id !== fid) return prev;
+        const list = prev[key] || [];
+        let next;
+        if (evt === 'DELETE') {
+          if (!list.some(x => x.id === row.id)) return prev;
+          next = list.filter(x => x.id !== row.id);
+        } else if (evt === 'UPDATE') {
+          const idx = list.findIndex(x => x.id === row.id);
+          if (idx < 0) next = order === 'desc' ? [payload.new].concat(list) : list.concat([payload.new]);
+          else { next = list.slice(); next[idx] = payload.new; }
+        } else {
+          if (list.some(x => x.id === row.id)) return prev;
+          next = order === 'desc' ? [payload.new].concat(list) : list.concat([payload.new]);
+        }
+        return Object.assign({}, prev, { [key]: next });
+      });
+      if (payload.new && payload.new.user_id) ensureProfile(payload.new.user_id);
+    };
+    const mergeMember = (payload) => {
+      if (openRef.current !== fid) return;
+      const evt = payload.eventType || payload.event;
+      const row = payload.new || payload.old;
+      if (!row || !row.user_id) return;
+      setOpen(prev => {
+        if (!prev || !prev.family || prev.family.id !== fid) return prev;
+        const list = prev.members || [];
+        let next;
+        if (evt === 'DELETE') {
+          if (!list.some(x => x.user_id === row.user_id)) return prev;
+          next = list.filter(x => x.user_id !== row.user_id);
+        } else if (evt === 'UPDATE') {
+          const idx = list.findIndex(x => x.user_id === row.user_id);
+          if (idx < 0) next = list.concat([payload.new]);
+          else { next = list.slice(); next[idx] = payload.new; }
+        } else {
+          if (list.some(x => x.user_id === row.user_id)) return prev;
+          next = list.concat([payload.new]);
+        }
+        return Object.assign({}, prev, { members: next });
+      });
+      if (payload.new && payload.new.user_id) ensureProfile(payload.new.user_id);
+    };
+    const mergeFamily = (payload) => {
+      if (openRef.current !== fid) return;
+      const evt = payload.eventType || payload.event;
+      if (evt === 'DELETE') {
+        if (onView) onView(null);
+        setOpen(null);
+        loadFamilies();
+        return;
+      }
+      if (evt !== 'UPDATE' || !payload.new) return;
+      // preserve income_goal/expense_goal/categories (มาจาก family_finance ไม่ใช่ families)
+      setOpen(prev => {
+        if (!prev || !prev.family || prev.family.id !== fid) return prev;
+        const ig = prev.family.income_goal, eg = prev.family.expense_goal, cats = prev.family.categories;
+        return Object.assign({}, prev, { family: Object.assign({}, prev.family, payload.new, { income_goal: ig, expense_goal: eg, categories: cats }) });
+      });
+    };
+    let firstSubscribe = true;
     const ch = supabase.channel('family-' + fid)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_transactions', filter: 'family_id=eq.' + fid }, () => { if (openRef.current === fid) loadDetail(fam); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_members', filter: 'family_id=eq.' + fid }, () => { if (openRef.current === fid) loadDetail(fam); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_messages', filter: 'family_id=eq.' + fid }, () => { if (openRef.current === fid) loadDetail(fam); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_ious', filter: 'family_id=eq.' + fid }, () => { if (openRef.current === fid) loadDetail(fam); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: 'id=eq.' + fid }, () => { if (openRef.current === fid) loadDetail(fam); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_transactions', filter: 'family_id=eq.' + fid }, payload => mergeList('txs', payload, 'desc'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_members', filter: 'family_id=eq.' + fid }, payload => mergeMember(payload))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_messages', filter: 'family_id=eq.' + fid }, payload => mergeList('msgs', payload, 'asc'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_ious', filter: 'family_id=eq.' + fid }, payload => mergeList('ious', payload, 'desc'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: 'id=eq.' + fid }, payload => mergeFamily(payload))
       .on('broadcast', { event: 'typing' }, payload => { const d = payload && payload.payload; if (!d || d.uid === currentUser.id) return; setTypingName(d.name || ''); if (typingTimerRef.current) clearTimeout(typingTimerRef.current); typingTimerRef.current = setTimeout(() => setTypingName(''), 3500); })
-      .subscribe();
+      .subscribe(status => {
+        if (status !== 'SUBSCRIBED') return;
+        // initial subscribe: ไม่ต้อง refetch (loadDetail ที่ตอนเปิดร้านโหลดให้แล้ว)
+        if (firstSubscribe) { firstSubscribe = false; return; }
+        // re-subscribe (network กลับมา) → resync เผื่อพลาด event ระหว่าง offline
+        if (openRef.current === fid) loadDetail(fam);
+      });
     chatChanRef.current = ch;
-    return () => { try { supabase.removeChannel(ch); } catch (e) {} chatChanRef.current = null; if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null; } setTypingName(''); };
+    const onVis = () => { if (!document.hidden && openRef.current === fid) loadDetail(fam); };
+    const onOnline = () => { if (openRef.current === fid) loadDetail(fam); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('online', onOnline);
+    return () => {
+      try { supabase.removeChannel(ch); } catch (e) {}
+      chatChanRef.current = null;
+      if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null; }
+      setTypingName('');
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('online', onOnline);
+    };
   }, [open && open.family && open.family.id]);
 
   const doCreate = async () => {
