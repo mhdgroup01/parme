@@ -54,6 +54,13 @@ if [ "$CUR_BRANCH" = "main" ] || [ "$CUR_BRANCH" = "master" ]; then
   fi
 fi
 
+# ── commit pending backlog edits ก่อนเริ่ม (กัน revert ลบ user edits) ──
+if [ "$MODE" != "dry" ] && ! git diff --quiet "$BACKLOG"; then
+  echo "→ committing pending backlog edits"
+  git add "$BACKLOG"
+  git commit -m "backlog: queue tasks for sprint $(date +%Y-%m-%d)" --quiet
+fi
+
 # ── parse unchecked tasks from backlog (compat with bash 3.x on macOS) ──
 TASKS=()
 while IFS= read -r line; do
@@ -91,6 +98,8 @@ for TASK in "${TASKS[@]}"; do
 
   BEFORE_HEAD="$(git rev-parse HEAD)"
   TASK_SLUG="$(echo "$TASK" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed -E 's/^-+|-+$//g' | cut -c1-50)"
+  # v2 — เก็บ backlog ตัวจริง (uncommitted edits ของ user) ไว้แยก ป้องกัน revert ลบทิ้ง
+  cp "$BACKLOG" /tmp/sprint-backlog-snapshot.md
 
   # ── build prompt ──
   PROMPT="$(cat "$POLICIES")
@@ -126,6 +135,7 @@ CURRENT BRANCH: $CUR_BRANCH (เก็บไว้ใน branch นี้ — �
     echo "✗ syntax check failed → revert"
     cat /tmp/sprint-check.log | tail -10
     git reset --hard "$BEFORE_HEAD"
+    cp /tmp/sprint-backlog-snapshot.md "$BACKLOG"  # restore user backlog edits
     REVERT_COUNT=$((REVERT_COUNT + 1))
     SUMMARY="${SUMMARY}\n• ✗ reverted (syntax): $TASK"
     if [ "$MODE" = "one" ]; then break; fi
@@ -143,6 +153,7 @@ CURRENT BRANCH: $CUR_BRANCH (เก็บไว้ใน branch นี้ — �
     echo "✗ bug-hunter found HIGH → revert"
     grep '\[HIGH\]' /tmp/sprint-hunt.log | head -3
     git reset --hard "$BEFORE_HEAD"
+    cp /tmp/sprint-backlog-snapshot.md "$BACKLOG"  # restore user backlog edits
     REVERT_COUNT=$((REVERT_COUNT + 1))
     SUMMARY="${SUMMARY}\n• ✗ reverted (HIGH bug): $TASK"
     if [ "$MODE" = "one" ]; then break; fi
