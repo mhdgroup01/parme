@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.39</title>
+<title>ພາລວຍ · Paruay v3.7.40</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.39" />
+<meta name="app-version" content="v3.7.40" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.39</div>
+    <div class="version-tag">v3.7.40</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.39';
+const APP_VERSION = 'v3.7.40';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -11513,6 +11513,9 @@ function Paruay() {
       return [];
     }
   });
+  // v3.7.40 — server-aggregated totals (correctness fix: client reduce ใช้ sales.limit(500) → ผิดเมื่อ > 500 บิล)
+  // ค่า null = RPC ยังไม่พร้อม → POSModal fallback ไปใช้ client reduce
+  const [posTotals, setPosTotals] = useState(null);
   // v3.4.73 — restaurant mode: number of tables (0 = no tables / regular sales)
   const [posTableCount, setPosTableCount] = useState(() => {
     try {
@@ -16210,6 +16213,24 @@ function Paruay() {
       }
     } catch (_) {}
   };
+  // v3.7.40 — server-side aggregate (correctness fix: ยอด > 500 บิลที่ client reduce ผิด)
+  // RPC: pos_sales_totals(p_shop uuid) → { total_rev, total_cost, today_rev, sale_count }
+  // ถ้า RPC ไม่มี (ก่อน M รัน SQL) → setPosTotals(null) → POSModal ใช้ client reduce ต่อ
+  const loadPosTotals = async shopId => {
+    if (!supabase || !shopId) return;
+    try {
+      const { data, error } = await supabase.rpc('pos_sales_totals', { p_shop: shopId });
+      if (error) { setPosTotals(null); return; }
+      const row = Array.isArray(data) ? (data[0] || null) : data;
+      if (!row) { setPosTotals(null); return; }
+      setPosTotals({
+        totalRev: Number(row.total_rev) || 0,
+        totalCost: Number(row.total_cost) || 0,
+        todayRev: Number(row.today_rev) || 0,
+        saleCount: Number(row.sale_count) || 0
+      });
+    } catch (_) { setPosTotals(null); }
+  };
   const posInviteFriend = async friend => {
     if (!supabase || !currentUser || !posMyShopId || !friend || !friend.id) return;
     try {
@@ -16357,6 +16378,12 @@ function Paruay() {
       localStorage.setItem('paruay_pos_shop_id', posShopId);
     } catch (_) {}
     loadShopData(posShopId);
+    loadPosTotals(posShopId);
+    let totalsTimer = null;
+    const scheduleTotalsRefresh = () => {
+      if (totalsTimer) clearTimeout(totalsTimer);
+      totalsTimer = setTimeout(() => loadPosTotals(posShopId), 1000);
+    };
     // delta-merge (Phase 2.2): payload event → merge in-place แทน loadShopData ทั้งก้อน
     // ลด 4-query refetch ต่อทุก event → 0 (เช่น ทุก sale = ทุก device ดึง 4 query ใหม่)
     // localStorage write-through ให้ offline cache สด
@@ -16404,23 +16431,25 @@ function Paruay() {
     const ch = supabase.channel('pos-shop-' + posShopId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_products', filter: 'shop=eq.' + posShopId }, payload => mergeRow(setPosProducts, 'paruay_pos_products', mapProd, payload, false))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_categories', filter: 'shop=eq.' + posShopId }, payload => mergeRow(setPosCategories, 'paruay_pos_categories', mapCat, payload, false))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_sales', filter: 'shop=eq.' + posShopId }, payload => mergeRow(setPosSales, 'paruay_pos_sales', mapSale, payload, true));
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_sales', filter: 'shop=eq.' + posShopId }, payload => { mergeRow(setPosSales, 'paruay_pos_sales', mapSale, payload, true); scheduleTotalsRefresh(); });
     let firstSubscribe = true;
     ch.subscribe(status => {
       if (status !== 'SUBSCRIBED') return;
-      // initial subscribe: loadShopData ที่ใส่ไว้ข้างบนโหลดให้แล้ว
+      // initial subscribe: loadShopData/loadPosTotals ข้างบนโหลดให้แล้ว
       if (firstSubscribe) { firstSubscribe = false; return; }
       // re-subscribe (network กลับมา) → resync เผื่อพลาด event
       loadShopData(posShopId);
+      loadPosTotals(posShopId);
     });
-    const onVis = () => { if (!document.hidden) loadShopData(posShopId); };
-    const onOnline = () => loadShopData(posShopId);
+    const onVis = () => { if (!document.hidden) { loadShopData(posShopId); loadPosTotals(posShopId); } };
+    const onOnline = () => { loadShopData(posShopId); loadPosTotals(posShopId); };
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('online', onOnline);
     return () => {
       try {
         supabase.removeChannel(ch);
       } catch (_) {}
+      if (totalsTimer) clearTimeout(totalsTimer);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('online', onOnline);
     };
@@ -28266,6 +28295,7 @@ function Paruay() {
     onSaveTableCount: savePosTableCount,
     onSaveCategories: savePosCategories,
     sales: posSales,
+    totals: posTotals,
     linked: posLinked,
     onSaveProducts: savePosProducts,
     onCompleteSale: posCompleteSale,
@@ -29264,6 +29294,7 @@ function POSModal({
   lang,
   products,
   sales,
+  totals,
   linked,
   categories,
   tableCount,
@@ -31832,9 +31863,10 @@ function POSModal({
     }
   }))), (() => {
     const todayS = new Date().toISOString().slice(0, 10);
-    const totalRev = sales.reduce((s, x) => s + (x.total || 0), 0);
-    const todayRev = sales.filter(x => x.date === todayS).reduce((s, x) => s + (x.total || 0), 0);
-    const totalCost = sales.reduce((s, x) => s + (x.costTotal || 0), 0);
+    // v3.7.40 — ใช้ totals จาก RPC ถ้ามี (ครอบทุกบิลทั้งร้าน), fallback client reduce (จำกัด 500 บิลล่าสุด)
+    const totalRev = totals ? totals.totalRev : sales.reduce((s, x) => s + (x.total || 0), 0);
+    const todayRev = totals ? totals.todayRev : sales.filter(x => x.date === todayS).reduce((s, x) => s + (x.total || 0), 0);
+    const totalCost = totals ? totals.totalCost : sales.reduce((s, x) => s + (x.costTotal || 0), 0);
     const profit = totalRev - totalCost;
     const lowStock = products.filter(p => p.stock != null && p.stock <= 5);
     return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
