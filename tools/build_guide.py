@@ -149,7 +149,7 @@ def Lspan(key, tag='span'):  # inline/block per-lang text from UI
     return ''.join('<%s class="L%s %s">%s</%s>'%(tag,'b' if tag!='span' else 'x',L,UI[L][key],('span' if tag=='span' else tag)) for L in LANGS) if False else ''.join(
         ('<span class="Lx %s">%s</span>'%(L,UI[L][key])) if tag=='span' else ('<%s class="Lb %s">%s</%s>'%(tag,L,UI[L][key],tag)) for L in LANGS)
 
-langbtns=''.join('<button class="langbtn" data-l="%s">%s</button>'%(L,LANGNAME[L]) for L in LANGS)
+langbtns=''.join('<button class="langbtn" data-l="%s">%s</button>'%(L,LANGNAME[L]) for L in ['lo','th','en'])
 navwraps=''.join('<div class="LB %s">%s</div>'%(L,nav_by[L]) for L in LANGS)
 chapwraps=''.join('<div class="LB %s">%s</div>'%(L,chap_by[L]) for L in LANGS)
 hero_pills=''.join('<span class="pill"><i style="background:%s"></i>%s</span>'%(c,''.join('<span class="Lx %s">%s</span>'%(L,esc(MENUL[L][i])) for L in LANGS)) for i,(k,c,lbl) in enumerate(MENU))
@@ -171,8 +171,8 @@ body.lang-th .LB.th,body.lang-lo .LB.lo,body.lang-en .LB.en{display:block}
 .wrap{display:grid;grid-template-columns:268px 1fr;max-width:1280px;margin:0 auto}
 .sidebar{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:24px 14px 40px;border-right:1px solid var(--line);background:var(--cream2)}
 .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 12px}
-.brand .logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#1B4332,#3D6B53);display:flex;align-items:center;justify-content:center;color:#F5EFE0;font-weight:800;font-size:20px;flex:0 0 auto}
-.brand b{font-size:20px;color:var(--forest)}.brand small{display:block;font-size:11px;color:var(--sand);letter-spacing:.12em}
+.brand .logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#1B4332,#3D6B53);display:flex;align-items:center;justify-content:center;color:#F5EFE0;font-weight:800;font-size:20px;flex:0 0 auto;font-family:'Noto Sans Lao','Noto Sans Thai',sans-serif}
+.brand b{font-size:20px;color:var(--forest);font-family:'Noto Sans Lao','Noto Sans Thai',sans-serif;font-weight:800}.brand small{display:block;font-size:11px;color:var(--sand);letter-spacing:.12em}
 .langbar{display:flex;gap:6px;padding:0 8px 14px;border-bottom:1px solid var(--line);margin-bottom:8px}
 .langbtn{flex:1;border:1px solid var(--line2);background:#fff;color:var(--brown);border-radius:10px;padding:7px 4px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 .langbtn.on{background:var(--forest);color:#F5EFE0;border-color:var(--forest)}
@@ -182,7 +182,7 @@ body.lang-th .LB.th,body.lang-lo .LB.lo,body.lang-en .LB.en{display:block}
 .nav-group a{display:block;font-size:13.5px;color:var(--brown);padding:6px 10px 6px 28px;border-radius:9px;border-left:2px solid transparent;line-height:1.4}
 .nav-group a:hover{background:#fff}.nav-group a.active{background:#fff;color:var(--forest);font-weight:600;border-left-color:var(--gold2)}
 .topbar{display:none;position:sticky;top:0;z-index:40;background:rgba(245,239,224,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 14px;align-items:center;justify-content:space-between;gap:8px}
-.topbar b{color:var(--forest);font-size:16px}.topbar .right{display:flex;gap:6px;align-items:center}
+.topbar b{color:var(--forest);font-size:16px;font-family:'Noto Sans Lao','Noto Sans Thai',sans-serif;font-weight:800}.topbar .right{display:flex;gap:6px;align-items:center}
 .tlang{border:1px solid var(--line2);background:#fff;color:var(--brown);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 .tlang.on{background:var(--forest);color:#F5EFE0}
 .burger{width:42px;height:42px;border:1px solid var(--line2);background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--forest)}
@@ -240,7 +240,7 @@ HTML = """<!doctype html><html lang="lo"><head>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Noto+Serif+Lao:wght@600;700&family=Noto+Sans+Lao:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Noto+Serif+Thai:wght@600;700&display=swap" rel="stylesheet">
 <style>__CSS__</style></head><body class="lang-lo">
-<div class="topbar"><b class="display">ພາລວຍ</b><div class="right"><button class="tlang" data-l="th">ไทย</button><button class="tlang" data-l="lo">ລາວ</button><button class="tlang" data-l="en">EN</button><button class="burger" id="burger" aria-label="menu">☰</button></div></div>
+<div class="topbar"><b class="display">ພາລວຍ</b><div class="right"><button class="tlang" data-l="lo">ລາວ</button><button class="tlang" data-l="th">ไทย</button><button class="tlang" data-l="en">EN</button><button class="burger" id="burger" aria-label="menu">☰</button></div></div>
 <div class="scrim" id="scrim"></div>
 <div class="wrap">
 <aside class="sidebar" id="sidebar">
