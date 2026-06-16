@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.58';
+const APP_VERSION = 'v3.7.59';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -11421,7 +11421,7 @@ function FamilyScreen(props) {
     null);
   const posButton = (onOpenPOS && open ? h('button', { onClick: () => openPOS(), className: lc, style: { width: '100%', marginBottom: 16, padding: '14px 16px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #0E7C66 0%, #0A5D4C 100%)', color: '#F5EFE0', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 6px 16px -8px rgba(14,124,102,0.5)' } }, h('span', { style: { fontSize: 19 } }, '\uD83D\uDED2'), h('span', { className: lc }, L('pos_open'))) : null);
 
-  const actionRow = h('div', { style: { display: 'flex', gap: 8, marginBottom: 16 } }, h('button', { onClick: startSplit, className: lc, style: { flex: 1, padding: '12px 6px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #D4A574 0%, #C8902E 100%)', color: '#FBF6E9', fontWeight: 700, fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer', boxShadow: '0 6px 16px -8px rgba(212,165,116,0.5)', lineHeight: 1.15 } }, h('span', { style: { fontSize: 22 } }, '\uD83E\uDD1D'), h('span', { className: lc, style: { textAlign: 'center' } }, L('iou_split_full'))), h('button', { onClick: startLend, className: lc, style: { flex: 1, padding: '12px 6px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #5D3A8E 0%, #3D2466 100%)', color: '#F5EFE0', fontWeight: 700, fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer', boxShadow: '0 6px 16px -8px rgba(93,58,142,0.4)', lineHeight: 1.15 } }, h('span', { style: { fontSize: 22 } }, '\uD83D\uDCB5'), h('span', { className: lc, style: { textAlign: 'center' } }, L('iou_lend_full'))), (onOpenPOS ? h('button', { onClick: () => openPOS(), className: lc, style: { flex: 1, padding: '12px 6px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #0E7C66 0%, #0A5D4C 100%)', color: '#F5EFE0', fontWeight: 700, fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer', boxShadow: '0 6px 16px -8px rgba(14,124,102,0.5)', lineHeight: 1.15 } }, h('span', { style: { fontSize: 22 } }, '\uD83D\uDED2'), h('span', { className: lc, style: { textAlign: 'center' } }, L('pos_open'))) : null));
+  const actionRow = h('div', { style: { display: 'flex', gap: 6, marginBottom: 16, alignItems: 'stretch' } }, h('button', { onClick: startSplit, style: { background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', borderRadius: 14 } }, h('div', { style: { width: '100%', padding: '14px 0', margin: 4, borderRadius: 12, background: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center' }, dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="7.5" r="3"/><circle cx="16" cy="9" r="2"/><path d="M2.5 18.5c0-2.8 2.8-4.8 6.5-4.8s6.5 2 6.5 4.8V20h-13v-1.5z"/><path d="M16 14.5c2 0 4.2 1 4.2 3V18H17" opacity="0.7"/></svg>' } }), h('span', { className: lc, style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 600, padding: '6px 2px 8px' } }, L('iou_split_full'))), h('button', { onClick: startLend, style: { background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', borderRadius: 14 } }, h('div', { style: { width: '100%', padding: '14px 0', margin: 4, borderRadius: 12, background: '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }, dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="12" cy="12" r="4.5" fill="#3B82F6"/><circle cx="12" cy="12" r="3.5" fill="white"/><text x="12" y="15.5" text-anchor="middle" fill="#3B82F6" font-size="9" font-weight="800">$</text><circle cx="4" cy="8" r="1" fill="#3B82F6" opacity="0.3"/><circle cx="4" cy="16" r="1" fill="#3B82F6" opacity="0.3"/><circle cx="20" cy="8" r="1" fill="#3B82F6" opacity="0.3"/><circle cx="20" cy="16" r="1" fill="#3B82F6" opacity="0.3"/></svg>' } }), h('span', { className: lc, style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 600, padding: '6px 2px 8px' } }, L('iou_lend_full'))), (onOpenPOS ? h('button', { onClick: () => openPOS(), style: { background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', borderRadius: 14 } }, h('div', { style: { width: '100%', padding: '14px 0', margin: 4, borderRadius: 12, background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }, dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 9l1.5-5h15L21 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="4" y="11" width="16" height="10" stroke="white" stroke-width="2" rx="1"/><rect x="9" y="15" width="6" height="6" stroke="white" stroke-width="2" rx="0.5"/></svg>' } }), h('span', { className: lc, style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 600, padding: '6px 2px 8px' } }, L('pos_open'))) : null));
   const fpCL = fpCartList();
   const fpTotal = fpCL.reduce((s, it) => s + it.price * it.qty, 0);
   const fpShown = fpProducts.filter(p => (fpCatFilter === 'all' || p.category_id === fpCatFilter) && (!fpSearch.trim() || (p.name || '').toLowerCase().indexOf(fpSearch.trim().toLowerCase()) >= 0));
@@ -18213,7 +18213,81 @@ function Paruay() {
       fontWeight: 500,
       color: '#E8B4A0'
     }
-  }, "\u2013" + CUR + " ", fmt(stats.outToday))))), /*#__PURE__*/React.createElement("div", { className: "fade-up", style: { animationDelay: '0.04s', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 } }, /*#__PURE__*/React.createElement("button", { onClick: () => openModal('income'), className: langClass, style: { padding: '16px 14px', borderRadius: 14, border: 'none', background: '#1B7A43', color: '#fff', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } }, /*#__PURE__*/React.createElement(Plus, { size: 18, color: '#fff' }), /*#__PURE__*/React.createElement("span", null, t.add_income)), /*#__PURE__*/React.createElement("button", { onClick: () => openModal('expense'), className: langClass, style: { padding: '16px 14px', borderRadius: 14, border: 'none', background: '#AA3C28', color: '#fff', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } }, /*#__PURE__*/React.createElement(TrendingDown, { size: 18, color: '#fff' }), /*#__PURE__*/React.createElement("span", null, t.add_expense))), (() => {
+  }, "\u2013" + CUR + " ", fmt(stats.outToday))))), /*#__PURE__*/React.createElement("div", { className: "fade-up", style: { animationDelay: '0.04s', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 } }, /*#__PURE__*/React.createElement("button", { onClick: () => openModal('income'), className: langClass, style: { padding: '16px 14px', borderRadius: 14, border: 'none', background: '#1B7A43', color: '#fff', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } }, /*#__PURE__*/React.createElement(Plus, { size: 18, color: '#fff' }), /*#__PURE__*/React.createElement("span", null, t.add_income)), /*#__PURE__*/React.createElement("button", { onClick: () => openModal('expense'), className: langClass, style: { padding: '16px 14px', borderRadius: 14, border: 'none', background: '#AA3C28', color: '#fff', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } }, /*#__PURE__*/React.createElement(TrendingDown, { size: 18, color: '#fff' }), /*#__PURE__*/React.createElement("span", null, t.add_expense))), /*#__PURE__*/React.createElement("div", {
+    className: "fade-up",
+    style: {
+      animationDelay: '0.1s',
+      marginBottom: 28,
+      display: 'flex',
+      gap: 6,
+      alignItems: 'stretch'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => openModal('split'),
+    style: { background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', borderRadius: 14 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: '100%', padding: '14px 0', margin: 4, borderRadius: 12, background: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="7.5" r="3"/><circle cx="16" cy="9" r="2"/><path d="M2.5 18.5c0-2.8 2.8-4.8 6.5-4.8s6.5 2 6.5 4.8V20h-13v-1.5z"/><path d="M16 14.5c2 0 4.2 1 4.2 3V18H17" opacity="0.7"/></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 600, padding: '6px 2px 8px' }
+  }, t.split_btn || t.split_bill_full)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setLoanFriend('');
+      setLoanPrincipal('');
+      setLoanRate('3');
+      setLoanPeriod('month');
+      setLoanType('simple');
+      setLoanStartDate(todayStr());
+      setLoanNote('');
+      setLoanFriendLink(null);
+      setSendLoanRequest(true);
+      setShowLendModal(true);
+    },
+    style: { background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', borderRadius: 14 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: '100%', padding: '14px 0', margin: 4, borderRadius: 12, background: '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="12" cy="12" r="4.5" fill="#3B82F6"/><circle cx="12" cy="12" r="3.5" fill="white"/><text x="12" y="15.5" text-anchor="middle" fill="#3B82F6" font-size="9" font-weight="800">$</text><circle cx="4" cy="8" r="1" fill="#3B82F6" opacity="0.3"/><circle cx="4" cy="16" r="1" fill="#3B82F6" opacity="0.3"/><circle cx="20" cy="8" r="1" fill="#3B82F6" opacity="0.3"/><circle cx="20" cy="16" r="1" fill="#3B82F6" opacity="0.3"/></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 600, padding: '6px 2px 8px' }
+  }, t.lend_money_full)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowPOS(true),
+    style: { background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', borderRadius: 14 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: '100%', padding: '14px 0', margin: 4, borderRadius: 12, background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 9l1.5-5h15L21 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="4" y="11" width="16" height="10" stroke="white" stroke-width="2" rx="1"/><rect x="9" y="15" width="6" height="6" stroke="white" stroke-width="2" rx="0.5"/></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 600, padding: '6px 2px 8px' }
+  }, t.pos_btn || t.pos_launch)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowGame(true),
+    style: { background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', borderRadius: 14 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: '100%', padding: '14px 0', margin: 4, borderRadius: 12, background: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 11h4M8 9v4" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="10" r="1" fill="white"/><circle cx="18" cy="13" r="1" fill="white"/><path d="M17.32 5H6.68a4 4 0 00-3.978 3.59L2 14a3 3 0 005.12 2.13L8.24 15h7.52l1.12 1.13A3 3 0 0022 14l-.7-5.41A4 4 0 0017.32 5z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 600, padding: '6px 2px 8px' }
+  }, t.game_btn || t.game_launch)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      loadTrips(currentUser.id);
+      setUnseenTripExpenses(0);
+      setShowTrips(true);
+    },
+    style: { background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer', minWidth: 0, overflow: 'hidden', borderRadius: 14, position: 'relative' }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: '100%', padding: '14px 0', margin: 4, borderRadius: 12, background: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><g transform="translate(12,12) rotate(-35) translate(-12,-12)"><path d="M21 12c1.1 0 2 .6 2 1.5S22.1 15 21 15H15l-3.5 5.5h-2l1.5-5.5H7l-1.5 2H4l1-3.5L4 10h1.5L7 12h4L9.5 6.5h2L15 12h6z"/></g></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 600, padding: '6px 2px 8px' }
+  }, t.trip_btn || t.trips_short || 'Trip'), (() => {
+    const tripBadge = tripInvitations.length + unseenTripExpenses + pendingTripConfirms;
+    return tripBadge > 0 ? /*#__PURE__*/React.createElement("span", {
+      style: { position: 'absolute', top: -2, right: 4, background: '#AA3C28', color: '#F5EFE0', minWidth: 16, height: 16, borderRadius: 999, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }
+    }, tripBadge) : null;
+  })())), (() => {
     const pendingIOUs = ious.filter(i => i.status === 'pending');
     if (pendingIOUs.length === 0) return null;
     // v3.4.8 — split positive (friends owe me) from negative (I owe friends)
@@ -18614,80 +18688,6 @@ function Paruay() {
   }, t.over_by, " " + CUR + " ", fmt(stats.outMonth - settings.monthlyBudget)) : /*#__PURE__*/React.createElement("span", {
     className: langClass
   }, t.remaining, " " + CUR + " ", fmt(settings.monthlyBudget - stats.outMonth), " (", (100 - budgetPercent).toFixed(0), "%)")), /*#__PURE__*/React.createElement("div", { style: { marginTop: 7, paddingTop: 7, borderTop: '1px dashed rgba(127,85,57,0.2)' } }, /*#__PURE__*/React.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 } }, /*#__PURE__*/React.createElement("span", { className: langClass, style: { fontSize: 10, color: budgetDayOver ? '#AA3C28' : '#9c8770', fontWeight: 600 } }, t.daily_budget), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: '#7F5539' } }, CUR + " ", fmt(Math.round(stats.outToday)), " / " + CUR + " ", fmt(Math.round(budgetPerDay)))), /*#__PURE__*/React.createElement("div", { style: { height: 4, background: '#EDE4CF', borderRadius: 999, overflow: 'hidden' } }, /*#__PURE__*/React.createElement("div", { style: { width: budgetDayPct + '%', height: '100%', background: budgetDayOver ? 'linear-gradient(90deg, #AA3C28, #E8856B)' : (budgetDayNear ? 'linear-gradient(90deg, #D98A3D, #E6B36B)' : 'linear-gradient(90deg, #0E7C66, #3FB89B)'), borderRadius: 999, transition: 'width 0.8s ease-out' } })), /*#__PURE__*/React.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 5, color: '#7F5539' } }, /*#__PURE__*/React.createElement("span", null, Math.round(budgetDayPctRaw), "%"), budgetDayOver ? /*#__PURE__*/React.createElement("span", { className: langClass, style: { color: '#AA3C28', fontWeight: 700 } }, t.over_today) : null)))), (settings.dailyGoal > 0 || settings.monthlyGoal > 0) && /*#__PURE__*/React.createElement("div", { className: "fade-up", style: { animationDelay: '0.09s', display: 'grid', gridTemplateColumns: ((settings.dailyGoal > 0 ? 1 : 0) + (settings.monthlyGoal > 0 ? 1 : 0)) >= 2 ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 16 } }, settings.dailyGoal > 0 && /*#__PURE__*/React.createElement(GoalMiniCard, { key: 'dailyGoal', iconEl: /*#__PURE__*/React.createElement(Calendar, { size: 16, color: '#0E7C66' }), label: t.daily_goal, labelColor: '#0E7C66', sub: t.goal_today, valColor: '#0E7C66', val: stats.inToday, target: settings.dailyGoal, barFill: dailyGoalReached ? 'linear-gradient(90deg, #1B4332, #D4A574)' : 'linear-gradient(90deg, #0E7C66, #3FB89B)', rawPct: settings.dailyGoal > 0 ? stats.inToday / settings.dailyGoal * 100 : 0, reached: dailyGoalReached, completedLabel: t.completed, langClass: langClass }), settings.monthlyGoal > 0 && /*#__PURE__*/React.createElement(GoalMiniCard, { key: 'monthlyGoal', iconEl: /*#__PURE__*/React.createElement(Target, { size: 16, color: '#1B7A43' }), label: t.monthly_goal, labelColor: '#1B7A43', sub: t.this_month, valColor: '#1B4332', val: stats.inMonth, target: settings.monthlyGoal, barFill: monthlyGoalReached ? 'linear-gradient(90deg, #1B4332, #D4A574)' : 'linear-gradient(90deg, #1B7A43, #3D6B53)', rawPct: settings.monthlyGoal > 0 ? stats.inMonth / settings.monthlyGoal * 100 : 0, reached: monthlyGoalReached, completedLabel: t.completed, langClass: langClass })), /*#__PURE__*/React.createElement("div", {
-    className: "fade-up",
-    style: {
-      animationDelay: '0.1s',
-      marginBottom: 28,
-      display: 'flex',
-      justifyContent: 'space-around',
-      alignItems: 'flex-start'
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => openModal('split'),
-    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0 }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { width: 48, height: 48, borderRadius: '50%', background: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="7.5" r="3"/><circle cx="16" cy="9" r="2"/><path d="M2.5 18.5c0-2.8 2.8-4.8 6.5-4.8s6.5 2 6.5 4.8V20h-13v-1.5z"/><path d="M16 14.5c2 0 4.2 1 4.2 3V18H17" opacity="0.7"/></svg>' }
-  }), /*#__PURE__*/React.createElement("span", {
-    className: langClass,
-    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
-  }, t.split_btn || t.split_bill_full)), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setLoanFriend('');
-      setLoanPrincipal('');
-      setLoanRate('3');
-      setLoanPeriod('month');
-      setLoanType('simple');
-      setLoanStartDate(todayStr());
-      setLoanNote('');
-      setLoanFriendLink(null);
-      setSendLoanRequest(true);
-      setShowLendModal(true);
-    },
-    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0 }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { width: 48, height: 48, borderRadius: '50%', background: '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><circle cx="12" cy="12" r="2.2" fill="#3B82F6"/><circle cx="12" cy="12" r="1.2" fill="white"/><rect x="3.5" y="5.5" width="17" height="2.5" fill="rgba(255,255,255,0.35)"/></svg>' }
-  }), /*#__PURE__*/React.createElement("span", {
-    className: langClass,
-    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
-  }, t.lend_money_full)), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowPOS(true),
-    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0 }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { width: 48, height: 48, borderRadius: '50%', background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1h4l2.68 13.39a1.5 1.5 0 001.49 1.11h9.72a1.5 1.5 0 001.49-1.11L23 6H6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="20.5" r="1.5" fill="white"/><circle cx="18.5" cy="20.5" r="1.5" fill="white"/></svg>' }
-  }), /*#__PURE__*/React.createElement("span", {
-    className: langClass,
-    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
-  }, t.pos_btn || t.pos_launch)), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowGame(true),
-    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0 }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { width: 48, height: 48, borderRadius: '50%', background: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 11h4M8 9v4" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="10" r="1" fill="white"/><circle cx="18" cy="13" r="1" fill="white"/><path d="M17.32 5H6.68a4 4 0 00-3.978 3.59L2 14a3 3 0 005.12 2.13L8.24 15h7.52l1.12 1.13A3 3 0 0022 14l-.7-5.41A4 4 0 0017.32 5z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' }
-  }), /*#__PURE__*/React.createElement("span", {
-    className: langClass,
-    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
-  }, t.game_btn || t.game_launch)), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      loadTrips(currentUser.id);
-      setUnseenTripExpenses(0);
-      setShowTrips(true);
-    },
-    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0, position: 'relative' }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { width: 48, height: 48, borderRadius: '50%', background: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><g transform="translate(12,12) rotate(-35) translate(-12,-12)"><path d="M21 12c1.1 0 2 .6 2 1.5S22.1 15 21 15H15l-3.5 5.5h-2l1.5-5.5H7l-1.5 2H4l1-3.5L4 10h1.5L7 12h4L9.5 6.5h2L15 12h6z"/></g></svg>' }
-  }), /*#__PURE__*/React.createElement("span", {
-    className: langClass,
-    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
-  }, t.trip_btn || t.trips_short || 'Trip'), (() => {
-    const tripBadge = tripInvitations.length + unseenTripExpenses + pendingTripConfirms;
-    return tripBadge > 0 ? /*#__PURE__*/React.createElement("span", {
-      style: { position: 'absolute', top: -2, right: 4, background: '#AA3C28', color: '#F5EFE0', minWidth: 16, height: 16, borderRadius: 999, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }
-    }, tripBadge) : null;
-  })())), /*#__PURE__*/React.createElement("div", {
     className: "fade-up",
     style: {
       animationDelay: '0.15s',
