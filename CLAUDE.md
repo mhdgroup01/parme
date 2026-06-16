@@ -91,6 +91,9 @@ GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) 
 - `fxToPrimary(st, sym, codeHint, primarySym, primaryCodeHint)` → **สกุลหลักต่อหน่วย** (ใช้กีบเป็นสะพาน) ถ้าสกุลหลัก = กีบ จะได้ผลเท่า fxKipPerUnit เป๊ะ
 - กราฟใช้คอลัมน์ `fxk_<sym>` = ค่าที่แปลงเป็นสกุลหลักแล้ว, tooltip แสดง `≈ CUR fmt(...)`
 
+## Demo mode (v3.7.88+) — เปิด UI หลัง login ได้โดยไม่ต้องล็อกอินจริง
+เพิ่ม `?demo=1` ใน URL → bypass Supabase auth + seed localStorage (7 transactions + 2 IOUs) → เปิดหน้าหลัก/รายงาน/Family/POS ในพรีวิวได้เลย ไม่กระทบ Supabase production. กลไก: `__fakeSupabase` stub (chainable .from() คืน empty array) + `__DEMO__` ตรวจ URL + early-return ใน auth useEffect + loadCloudData. ใช้สำหรับ Claude ตรวจ UI/UX bug ในพรีวิวก่อน deploy.
+
 ## งานค้าง (ณ v3.7.40)
 - ขยาย product catalog (รับรูป → ลบพื้นหลังดำ → webp 256px q80 → อัปเดต `catalog/catalog.json` + zip ไม่ต้อง bump แอป)
 - **2.3 cursor polling** (transactions/ious) — รอ SQL: ADD `updated_at` + `deleted_at` columns + trigger + composite indexes
