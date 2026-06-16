@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.57';
+const APP_VERSION = 'v3.7.58';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -3945,6 +3945,10 @@ const I18N = {
     no_items: 'ບໍ່ມີລາຍການ',
     split_bill: 'ຫານບິນ',
     split_bill_full: 'ຫານບິນກັບໝູ່',
+    split_btn: 'ຫານບິນ',
+    pos_btn: 'ຮ້ານ (POS)',
+    game_btn: 'ເກມ',
+    trip_btn: 'ອອກທຣິບ',
     toast_split_saved: '✓ ບັນທຶກບິນຫານແລ້ວ',
     save_image: 'ບັນທຶກຮູບ',
     view_bill_detail: 'ເບິ່ງລາຍລະອຽດບິນ',
@@ -3958,8 +3962,8 @@ const I18N = {
     pending_in_bill: 'ຍັງຄ້າງ',
     confirm_paid_title: 'ຢືນຢັນຮັບເງິນ',
     lend_money: 'ໃຫ້ຢືມ',
-    lend_money_full: '💵 ໃຫ້ໝູ່ຢືມ',
-    pos_launch: '🛒 ຂາຍເຄື່ອງ (POS)',
+    lend_money_full: 'ໃຫ້ໝູ່ຢືມ',
+    pos_launch: 'ຂາຍເຄື່ອງ (POS)',
     pos_title: 'ຂາຍເຄື່ອງ',
     pos_tab_sell: 'ຂາຍ',
     pos_tab_products: 'ສິນຄ້າ',
@@ -4660,6 +4664,10 @@ const I18N = {
     no_items: 'ไม่มีรายการ',
     split_bill: 'หารบิล',
     split_bill_full: 'หารบิลกับเพื่อน',
+    split_btn: 'หารบิล',
+    pos_btn: 'ร้าน (POS)',
+    game_btn: 'เกม',
+    trip_btn: 'ออกทริป',
     toast_split_saved: '✓ บันทึกบิลหารแล้ว',
     save_image: 'บันทึกรูปภาพ',
     view_bill_detail: 'ดูรายละเอียดบิล',
@@ -4673,8 +4681,8 @@ const I18N = {
     pending_in_bill: 'ยังค้าง',
     confirm_paid_title: 'ยืนยันรับเงิน',
     lend_money: 'ให้ยืม',
-    lend_money_full: '💵 ให้เพื่อนยืม',
-    pos_launch: '🛒 ขายของ (POS)',
+    lend_money_full: 'ให้เพื่อนยืม',
+    pos_launch: 'ขายของ (POS)',
     pos_title: 'ขายของ',
     pos_tab_sell: 'ขาย',
     pos_tab_products: 'สินค้า',
@@ -5375,6 +5383,10 @@ const I18N = {
     no_items: 'No items',
     split_bill: 'Split Bill',
     split_bill_full: 'Split a Bill',
+    split_btn: 'Split',
+    pos_btn: 'Shop (POS)',
+    game_btn: 'Game',
+    trip_btn: 'Trip',
     toast_split_saved: '✓ Split bill saved',
     save_image: 'Save Image',
     view_bill_detail: 'View bill detail',
@@ -5388,8 +5400,8 @@ const I18N = {
     pending_in_bill: 'pending',
     confirm_paid_title: 'Confirm Payment',
     lend_money: 'Lend',
-    lend_money_full: '💵 Lend Money',
-    pos_launch: '🛒 POS — Sell',
+    lend_money_full: 'Lend Money',
+    pos_launch: 'POS — Sell',
     pos_title: 'POS',
     pos_tab_sell: 'Sell',
     pos_tab_products: 'Products',
@@ -6090,6 +6102,10 @@ const I18N = {
     no_items: '暂无项目',
     split_bill: '分账',
     split_bill_full: '分账单',
+    split_btn: '分账',
+    pos_btn: '店 (POS)',
+    game_btn: '游戏',
+    trip_btn: '出行',
     toast_split_saved: '✓ 分账已保存',
     save_image: '保存图片',
     view_bill_detail: '查看账单明细',
@@ -6103,8 +6119,8 @@ const I18N = {
     pending_in_bill: '待付',
     confirm_paid_title: '确认付款',
     lend_money: '借出',
-    lend_money_full: '💵 借出钱款',
-    pos_launch: '🛒 收银 — 卖货',
+    lend_money_full: '借出钱款',
+    pos_launch: '收银 — 卖货',
     pos_title: '收银',
     pos_tab_sell: '卖货',
     pos_tab_products: '商品',
@@ -18088,58 +18104,7 @@ function Paruay() {
         border: '1.5px solid #F5EFE0'
       }
     }, totalBadge));
-  })(), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      loadTrips(currentUser.id);
-      setUnseenTripExpenses(0); // v3.4.36 — clear the unseen-expense badge on open
-      setShowTrips(true);
-    },
-    className: langClass,
-    style: {
-      flex: 1,
-      position: 'relative',
-      padding: '14px 12px',
-      borderRadius: 16,
-      background: 'linear-gradient(135deg, #5D3A8E, #3D2466)',
-      color: '#F5EFE0',
-      fontSize: 13,
-      fontWeight: 700,
-      border: 'none',
-      boxShadow: '0 2px 8px rgba(93,58,142,0.25)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 18
-    }
-  }, "\uD83E\uDDF3"), /*#__PURE__*/React.createElement("span", null, t.trips_short || t.trips_open || 'Trips'), (() => {
-    // v3.4.36 — badge = trip invitations + unseen friend-paid expenses
-    // v3.4.44 — + settlements awaiting MY confirmation (creditor)
-    const tripBadge = tripInvitations.length + unseenTripExpenses + pendingTripConfirms;
-    return tripBadge > 0 ? /*#__PURE__*/React.createElement("span", {
-      className: "badge-pulse",
-      style: {
-        position: 'absolute',
-        top: 6,
-        right: 8,
-        background: '#AA3C28',
-        color: '#F5EFE0',
-        minWidth: 18,
-        height: 18,
-        borderRadius: 999,
-        fontSize: 10,
-        fontWeight: 900,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '0 5px',
-        border: '1.5px solid #F5EFE0'
-      }
-    }, tripBadge) : null;
-  })())), /*#__PURE__*/React.createElement("section", {
+  })()), /*#__PURE__*/React.createElement("section", {
     className: "fade-up",
     style: {
       animationDelay: '0.05s',
@@ -18652,33 +18617,21 @@ function Paruay() {
     className: "fade-up",
     style: {
       animationDelay: '0.1s',
-      marginBottom: 28
+      marginBottom: 28,
+      display: 'flex',
+      justifyContent: 'space-around',
+      alignItems: 'flex-start'
     }
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => openModal('split'),
-    style: {
-      width: '100%',
-      padding: '16px 16px',
-      borderRadius: 16,
-      marginBottom: 10,
-      border: 'none',
-      background: 'linear-gradient(135deg, #D4A574 0%, #C8902E 100%)',
-      color: '#FBF6E9',
-      fontWeight: 600,
-      fontSize: 15,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      boxShadow: '0 8px 20px -8px rgba(212,165,116,0.5)'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 20
-    }
-  }, "\uD83E\uDD1D"), /*#__PURE__*/React.createElement("span", {
-    className: langClass
-  }, t.split_bill_full)), /*#__PURE__*/React.createElement("button", {
+    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: 48, height: 48, borderRadius: '50%', background: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="7.5" r="3"/><circle cx="16" cy="9" r="2"/><path d="M2.5 18.5c0-2.8 2.8-4.8 6.5-4.8s6.5 2 6.5 4.8V20h-13v-1.5z"/><path d="M16 14.5c2 0 4.2 1 4.2 3V18H17" opacity="0.7"/></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
+  }, t.split_btn || t.split_bill_full)), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setLoanFriend('');
       setLoanPrincipal('');
@@ -18687,77 +18640,54 @@ function Paruay() {
       setLoanType('simple');
       setLoanStartDate(todayStr());
       setLoanNote('');
-      // v3.2.0 — reset friend link
       setLoanFriendLink(null);
       setSendLoanRequest(true);
       setShowLendModal(true);
     },
-    style: {
-      width: '100%',
-      padding: '16px 16px',
-      borderRadius: 16,
-      border: 'none',
-      background: 'linear-gradient(135deg, #5D3A8E 0%, #3D2466 100%)',
-      color: '#F5EFE0',
-      fontWeight: 600,
-      fontSize: 15,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      boxShadow: '0 8px 20px -8px rgba(93,58,142,0.4)'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: langClass
+    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: 48, height: 48, borderRadius: '50%', background: '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><circle cx="12" cy="12" r="2.2" fill="#3B82F6"/><circle cx="12" cy="12" r="1.2" fill="white"/><rect x="3.5" y="5.5" width="17" height="2.5" fill="rgba(255,255,255,0.35)"/></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
   }, t.lend_money_full)), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowPOS(true),
-    style: {
-      width: '100%',
-      padding: '16px 16px',
-      borderRadius: 16,
-      marginTop: 10,
-      border: 'none',
-      background: 'linear-gradient(135deg, #2D5A47 0%, #1B4332 100%)',
-      color: '#F5EFE0',
-      fontWeight: 600,
-      fontSize: 15,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      boxShadow: '0 8px 20px -8px rgba(27,67,50,0.45)'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 20
-    }
-  }, "\uD83D\uDED2"), /*#__PURE__*/React.createElement("span", {
-    className: langClass
-  }, t.pos_launch || 'POS \u2014 Sell')), /*#__PURE__*/React.createElement("button", {
+    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: 48, height: 48, borderRadius: '50%', background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1h4l2.68 13.39a1.5 1.5 0 001.49 1.11h9.72a1.5 1.5 0 001.49-1.11L23 6H6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="20.5" r="1.5" fill="white"/><circle cx="18.5" cy="20.5" r="1.5" fill="white"/></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
+  }, t.pos_btn || t.pos_launch)), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowGame(true),
-    style: {
-      width: '100%',
-      padding: '16px 16px',
-      borderRadius: 16,
-      marginTop: 10,
-      border: 'none',
-      background: 'linear-gradient(135deg, #B8860B 0%, #8B6508 100%)',
-      color: '#F5EFE0',
-      fontWeight: 600,
-      fontSize: 15,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      boxShadow: '0 8px 20px -8px rgba(184,134,11,0.45)'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 20
-    }
-  }, "\uD83C\uDFB4"), /*#__PURE__*/React.createElement("span", {
-    className: langClass
-  }, t.game_launch || '\uD83C\uDFB4 Card Flip Game'))), /*#__PURE__*/React.createElement("div", {
+    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: 48, height: 48, borderRadius: '50%', background: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 11h4M8 9v4" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="10" r="1" fill="white"/><circle cx="18" cy="13" r="1" fill="white"/><path d="M17.32 5H6.68a4 4 0 00-3.978 3.59L2 14a3 3 0 005.12 2.13L8.24 15h7.52l1.12 1.13A3 3 0 0022 14l-.7-5.41A4 4 0 0017.32 5z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
+  }, t.game_btn || t.game_launch)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      loadTrips(currentUser.id);
+      setUnseenTripExpenses(0);
+      setShowTrips(true);
+    },
+    style: { background: 'none', border: 'none', padding: '6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, cursor: 'pointer', minWidth: 0, position: 'relative' }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { width: 48, height: 48, borderRadius: '50%', background: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    dangerouslySetInnerHTML: { __html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><g transform="translate(12,12) rotate(-35) translate(-12,-12)"><path d="M21 12c1.1 0 2 .6 2 1.5S22.1 15 21 15H15l-3.5 5.5h-2l1.5-5.5H7l-1.5 2H4l1-3.5L4 10h1.5L7 12h4L9.5 6.5h2L15 12h6z"/></g></svg>' }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: langClass,
+    style: { fontSize: 11, color: '#7F5539', textAlign: 'center', lineHeight: '1.3', fontWeight: 500 }
+  }, t.trip_btn || t.trips_short || 'Trip'), (() => {
+    const tripBadge = tripInvitations.length + unseenTripExpenses + pendingTripConfirms;
+    return tripBadge > 0 ? /*#__PURE__*/React.createElement("span", {
+      style: { position: 'absolute', top: -2, right: 4, background: '#AA3C28', color: '#F5EFE0', minWidth: 16, height: 16, borderRadius: 999, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }
+    }, tripBadge) : null;
+  })())), /*#__PURE__*/React.createElement("div", {
     className: "fade-up",
     style: {
       animationDelay: '0.15s',
