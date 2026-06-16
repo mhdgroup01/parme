@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.62</title>
+<title>ພາລວຍ · Paruay v3.7.63</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.62" />
+<meta name="app-version" content="v3.7.63" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.62</div>
+    <div class="version-tag">v3.7.63</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.62';
+const APP_VERSION = 'v3.7.63';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -10903,7 +10903,7 @@ function FamilyScreen(props) {
 
   const balanceCard = h('section', { className: 'fade-up', style: { background: 'linear-gradient(135deg, #1B4332 0%, #2D5A47 60%, #3D6B53 100%)', borderRadius: 24, padding: '26px 24px', color: '#F5EFE0', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 50px -20px rgba(27,67,50,0.5)', marginBottom: 14 } },
     h('div', { style: { position: 'absolute', top: -50, right: -50, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(212,165,116,0.25) 0%, transparent 70%)' } }),
-    h('div', { style: { position: 'absolute', top: 0, right: 0, width: 160, height: 160, pointerEvents: 'none' }, dangerouslySetInnerHTML: { __html: '<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke="#F5EFE0" fill="none" stroke-width="1.2"><circle cx="160" cy="0" r="34" opacity="0.20"/><circle cx="160" cy="0" r="60" opacity="0.15"/><circle cx="160" cy="0" r="86" opacity="0.11"/><circle cx="160" cy="0" r="112" opacity="0.08"/><circle cx="160" cy="0" r="138" opacity="0.05"/></g></svg>' } }),
+    h('div', { style: { position: 'absolute', top: 8, right: 10, width: 150, height: 175, pointerEvents: 'none' }, dangerouslySetInnerHTML: { __html: '<svg width="100%" height="100%" viewBox="0 0 150 175" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#F5EFE0" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.4" opacity="0.55"><path d="M75 3C71.5 8 71.5 11 75 14C78.5 11 78.5 8 75 3Z"/><path d="M75 14C75 18.5 69.5 19.5 69.5 15C69.5 11.5 74 10.5 76.5 13C80 16.5 76 22.5 70.5 22"/><path d="M72.5 22C77 26 70.5 30.5 75 35"/></g><rect x="10" y="35" width="130" height="130" rx="11" stroke-width="1.6" opacity="0.45"/><rect x="16.5" y="41.5" width="117" height="117" rx="7" stroke-width="1" opacity="0.3"/><g stroke-width="1.2" opacity="0.4"><path d="M10 50q-6 -4 -2 -11"/><path d="M140 50q6 -4 2 -11"/><path d="M10 150q-6 4 -2 11"/><path d="M140 150q6 4 2 11"/></g><g fill="#F5EFE0" stroke="none" font-family="sans-serif" font-weight="600" text-anchor="middle" opacity="0.5"><text x="75" y="62" font-size="12" letter-spacing="1.5">นะ ชา ลี ติ</text><text x="75" y="83" font-size="12" letter-spacing="1.5">อุ อา กะ สะ</text><text x="75" y="104" font-size="12" letter-spacing="1.5">นะ มะ พะ ทะ</text><text x="75" y="125" font-size="10.5" letter-spacing="0.8">สัมปะติจฉามิ</text><text x="75" y="146" font-size="11" letter-spacing="0.8">นะโม พุทธายะ</text></g></svg>' } }),
     h('div', { className: lc, style: { fontSize: 13, opacity: 0.75, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 } }, L('pool')),
     h('div', { className: 'display', style: { fontSize: 'clamp(34px, 7vw, 50px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1, color: bal < 0 ? '#FFAD99' : '#F5EFE0' } }, (bal < 0 ? '–' : '') + CUR + ' ' + fmt(Math.abs(bal))),
     (() => { const fsyms = Array.from(new Set(CURS.map(c => c.sym).concat(Object.keys(famForeign)))); if (fsyms.length === 0) return null; return h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '4px 18px', marginTop: 10 } }, fsyms.map(sym => { const f = famForeign[sym] || { bal: 0 }; return h('span', { key: 'ffb' + sym, className: 'display', style: { fontSize: 18, fontWeight: 600, color: 'rgba(245,239,224,0.8)', whiteSpace: 'nowrap' } }, (f.bal < 0 ? '\u2013' : '') + sym + ' ' + fmt(Math.abs(f.bal))); })); })(),
@@ -18175,7 +18175,7 @@ function Paruay() {
       borderRadius: '50%',
       background: 'radial-gradient(circle, rgba(212,165,116,0.25) 0%, transparent 70%)'
     }
-  }), /*#__PURE__*/React.createElement("div", { style: { position: 'absolute', top: 0, right: 0, width: 160, height: 160, pointerEvents: 'none' }, dangerouslySetInnerHTML: { __html: '<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke="#F5EFE0" fill="none" stroke-width="1.2"><circle cx="160" cy="0" r="34" opacity="0.20"/><circle cx="160" cy="0" r="60" opacity="0.15"/><circle cx="160" cy="0" r="86" opacity="0.11"/><circle cx="160" cy="0" r="112" opacity="0.08"/><circle cx="160" cy="0" r="138" opacity="0.05"/></g></svg>' } }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", { style: { position: 'absolute', top: 8, right: 10, width: 150, height: 175, pointerEvents: 'none' }, dangerouslySetInnerHTML: { __html: '<svg width="100%" height="100%" viewBox="0 0 150 175" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#F5EFE0" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.4" opacity="0.55"><path d="M75 3C71.5 8 71.5 11 75 14C78.5 11 78.5 8 75 3Z"/><path d="M75 14C75 18.5 69.5 19.5 69.5 15C69.5 11.5 74 10.5 76.5 13C80 16.5 76 22.5 70.5 22"/><path d="M72.5 22C77 26 70.5 30.5 75 35"/></g><rect x="10" y="35" width="130" height="130" rx="11" stroke-width="1.6" opacity="0.45"/><rect x="16.5" y="41.5" width="117" height="117" rx="7" stroke-width="1" opacity="0.3"/><g stroke-width="1.2" opacity="0.4"><path d="M10 50q-6 -4 -2 -11"/><path d="M140 50q6 -4 2 -11"/><path d="M10 150q-6 4 -2 11"/><path d="M140 150q6 4 2 11"/></g><g fill="#F5EFE0" stroke="none" font-family="sans-serif" font-weight="600" text-anchor="middle" opacity="0.5"><text x="75" y="62" font-size="12" letter-spacing="1.5">นะ ชา ลี ติ</text><text x="75" y="83" font-size="12" letter-spacing="1.5">อุ อา กะ สะ</text><text x="75" y="104" font-size="12" letter-spacing="1.5">นะ มะ พะ ทะ</text><text x="75" y="125" font-size="10.5" letter-spacing="0.8">สัมปะติจฉามิ</text><text x="75" y="146" font-size="11" letter-spacing="0.8">นะโม พุทธายะ</text></g></svg>' } }), /*#__PURE__*/React.createElement("div", {
     className: langClass,
     style: {
       fontSize: 13,
