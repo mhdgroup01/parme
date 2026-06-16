@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.59';
+const APP_VERSION = 'v3.7.60';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -11070,8 +11070,8 @@ function FamilyScreen(props) {
 
   const accent = addType === 'income' ? '#1B7A43' : '#AA3C28';
   const addBar = h('div', { style: { display: 'flex', gap: 10, marginBottom: 16 } },
-      h('button', { onClick: () => openAdd('income'), className: lc, style: { ...btn('#1B7A43'), flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 } }, h(Plus, { size: 16, color: '#fff' }), L('income')),
-      h('button', { onClick: () => openAdd('expense'), className: lc, style: { ...btn('#AA3C28'), flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 } }, h(TrendingDown, { size: 16, color: '#fff' }), L('expense'))
+      h('button', { onClick: () => openAdd('income'), className: lc, style: { ...btn('#1B7A43'), flex: 1, padding: '16px 14px', borderRadius: 14, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } }, h(Plus, { size: 18, color: '#fff' }), L('income')),
+      h('button', { onClick: () => openAdd('expense'), className: lc, style: { ...btn('#AA3C28'), flex: 1, padding: '16px 14px', borderRadius: 14, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } }, h(TrendingDown, { size: 18, color: '#fff' }), L('expense'))
     );
 
   const addPopup = addType
