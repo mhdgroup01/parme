@@ -162,7 +162,7 @@ PYEOF_CSS = r"""
 :root{--cream:#F5EFE0;--cream2:#FBF6E9;--paper:#fff;--forest:#1B4332;--brown:#7F5539;--brown2:#5C4632;--sand:#A89580;--gold:#D4A574;--gold2:#C8902E;--danger:#AA3C28;--line:rgba(127,85,57,.14);--line2:rgba(127,85,57,.22);--shadow:0 10px 30px -16px rgba(27,67,50,.35);}
 *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:74px}
 body{margin:0;background:var(--cream);color:var(--brown2);font-family:'Noto Sans Thai','Noto Sans Lao',system-ui,sans-serif;line-height:1.65;font-size:16px;-webkit-font-smoothing:antialiased}
-.display{font-family:'Fraunces','Noto Serif Thai',serif}
+.display{font-family:'Fraunces','Noto Serif Lao','Noto Serif Thai',serif}
 a{color:inherit;text-decoration:none}svg{max-width:100%}
 .Lx,.Lb,.LB{display:none}
 body.lang-th .Lx.th,body.lang-lo .Lx.lo,body.lang-en .Lx.en{display:inline}
@@ -234,17 +234,17 @@ footer{margin-top:60px;padding:28px 0 10px;border-top:1px solid var(--line);colo
 """
 CSS = PYEOF_CSS
 
-HTML = """<!doctype html><html lang="th"><head>
+HTML = """<!doctype html><html lang="lo"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>คู่มือ · พารวย (Paruay) Guide</title>
+<title>ຄູ່ມື · ພາລວຍ (Paruay) Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Noto+Sans+Lao:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Noto+Serif+Thai:wght@600;700&display=swap" rel="stylesheet">
-<style>__CSS__</style></head><body class="lang-th">
-<div class="topbar"><b class="display">พารวย</b><div class="right"><button class="tlang" data-l="th">ไทย</button><button class="tlang" data-l="lo">ລາວ</button><button class="tlang" data-l="en">EN</button><button class="burger" id="burger" aria-label="menu">☰</button></div></div>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Noto+Serif+Lao:wght@600;700&family=Noto+Sans+Lao:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Noto+Serif+Thai:wght@600;700&display=swap" rel="stylesheet">
+<style>__CSS__</style></head><body class="lang-lo">
+<div class="topbar"><b class="display">ພາລວຍ</b><div class="right"><button class="tlang" data-l="th">ไทย</button><button class="tlang" data-l="lo">ລາວ</button><button class="tlang" data-l="en">EN</button><button class="burger" id="burger" aria-label="menu">☰</button></div></div>
 <div class="scrim" id="scrim"></div>
 <div class="wrap">
 <aside class="sidebar" id="sidebar">
- <div class="brand"><div class="logo display">พ</div><div><b class="display">พารวย</b><small>Paruay · Guide</small></div></div>
+ <div class="brand"><div class="logo display">ພ</div><div><b class="display">ພາລວຍ</b><small>Paruay · Guide</small></div></div>
  <div class="langbar">__LANGBTNS__</div>
  <div class="nav-group"><div class="gh"><span class="dot" style="background:#1B4332"></span><a href="#top" style="padding:0">__START__</a></div></div>
  __NAVWRAPS__
@@ -293,7 +293,7 @@ q.addEventListener('input',function(){var v=q.value.trim().toLowerCase();
   bl.querySelectorAll('.feature').forEach(function(f){var hit=!v||f.getAttribute('data-sf').indexOf(v)>=0;f.style.display=hit?'':'none';if(hit)any=true;});
   var t=bl.querySelector('.block-title').textContent.toLowerCase();bl.style.display=(!v||any||t.indexOf(v)>=0)?'':'none';});
   W.querySelectorAll('.chapter').forEach(function(ch){var vis=[].slice.call(ch.querySelectorAll('.block')).some(function(b){return b.style.display!=='none'});ch.style.display=vis?'':'none';});});});
-var saved='th';try{saved=localStorage.getItem('paruay_guide_lang')||'th'}catch(e){}
+var saved='lo';try{saved=localStorage.getItem('paruay_guide_lang')||'lo'}catch(e){}
 setLang(saved);
 </script></body></html>"""
 
