@@ -97,7 +97,7 @@ GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) 
 ## งานค้าง (ณ v3.7.40)
 - ขยาย product catalog (รับรูป → ลบพื้นหลังดำ → webp 256px q80 → อัปเดต `catalog/catalog.json` + zip ไม่ต้อง bump แอป)
 - **2.3 cursor polling** (transactions/ious) — รอ SQL: ADD `updated_at` + `deleted_at` columns + trigger + composite indexes
-- **2.4 admin dashboard RPC** — server-side aggregate แทน raw download 10k+ rows
+- ✅ **2.4 admin dashboard RPC** — client wire ไว้แล้ว (v3.7.50+, graceful fallback). SQL พร้อมรันที่ `tools/migrations/2026-06-17-admin-dashboard-summary.sql` (M รันที่ Supabase) → admin stats จะ aggregate ฝั่ง server ครอบทุก row. validate ด้วย pglast แล้ว, แก้บั๊ก sparse hourly/weekday (ต้อง length 24/7 เป๊ะ)
 - **Phase 2.1b / 2.2b** ตัด `loadDetail()/loadShopData()` ออกจาก local writes (ต้องการ optimistic update เต็ม) — ทำเมื่อมั่นใจ delta-merge เสถียร
 
 ## sprint ที่ทำแล้ว (2026-06-15/16)
