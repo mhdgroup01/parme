@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>ພາລວຍ · Paruay v3.7.57</title>
+<title>ພາລວຍ · Paruay v3.7.61</title>
 <meta name="theme-color" content="#1B4332" />
-<meta name="app-version" content="v3.7.57" />
+<meta name="app-version" content="v3.7.61" />
 <link rel="preconnect" href="https://rilrbflteuwhomrwfcsa.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="dns-prefetch" href="https://open.er-api.com" />
@@ -873,7 +873,7 @@
     <h1>ພາລວຍ</h1>
     <p>Paruay · Path to Wealth</p>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="version-tag">v3.7.57</div>
+    <div class="version-tag">v3.7.61</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -3754,7 +3754,7 @@ const Users = p => /*#__PURE__*/React.createElement(Icon, p, /*#__PURE__*/React.
  *                       The ious table's PK is 'id' (UUID, default
  *                       gen_random_uuid()); we let Postgres generate it.
  * ==================================================================== */
-const APP_VERSION = 'v3.7.60';
+const APP_VERSION = 'v3.7.61';
 
 // v2.6.0 — Date of Birth → Age helper
 function calcAgeFromDob(dob) {
@@ -4605,6 +4605,7 @@ const I18N = {
     add_expense: 'ລາຍຈ່າຍ',
     save: 'ບັນທຶກ',
     last_7_days: '7 ມື້ຜ່ານມາ',
+    r_day: 'ມື້', r_week: 'ອາທິດ', r_month: 'ເດືອນ', r_year: 'ປີ', r_all: 'ທັງໝົດ', flow_title: 'ກະແສເງິນ',
     monthly_chart: 'ເດືອນນີ້',
     all_label: 'ທັງໝົດ',
     net_label: 'ສຸດທິ',
@@ -5324,6 +5325,7 @@ const I18N = {
     add_expense: 'รายจ่าย',
     save: 'บันทึก',
     last_7_days: '7 วันที่ผ่านมา',
+    r_day: 'วัน', r_week: 'สัปดาห์', r_month: 'เดือน', r_year: 'ปี', r_all: 'ทั้งหมด', flow_title: 'กระแสเงิน',
     monthly_chart: 'เดือนนี้',
     all_label: 'ทั้งหมด',
     net_label: 'สุทธิ',
@@ -6043,6 +6045,7 @@ const I18N = {
     add_expense: 'Expense',
     save: 'Save',
     last_7_days: 'Last 7 days',
+    r_day: 'Day', r_week: 'Week', r_month: 'Month', r_year: 'Year', r_all: 'All', flow_title: 'Cash flow',
     monthly_chart: 'This month',
     all_label: 'All',
     net_label: 'Net',
@@ -6753,6 +6756,7 @@ const I18N = {
     add_expense: '支出',
     save: '保存',
     last_7_days: '近 7 天',
+    r_day: '日', r_week: '周', r_month: '月', r_year: '年', r_all: '全部', flow_title: '现金流',
     monthly_chart: '本月',
     all_label: '全部',
     net_label: '净额',
@@ -14933,6 +14937,7 @@ function Paruay() {
     });
     setShowSettings(true);
   };
+  const [homeRange, setHomeRange] = useState('day');
   const stats = useMemo(() => {
     const today = todayStr();
     const month = today.slice(0, 7);
@@ -15035,6 +15040,48 @@ function Paruay() {
   // v3.6.79 — kip-per-unit per secondary symbol in the 7-day chart + a data copy carrying kip-converted columns (fxk_<sym>)
   const fxKip = {}; (stats.fxSyms || []).forEach(s => { const k = fxToPrimary(fxRates, s, (CURS.find(x => x && x.sym === s) || {}).code, CUR, fxSymToCode(CUR)); if (k > 0) fxKip[s] = k; }); // v3.7.35 — convert to PRIMARY currency, not always kip
   const chartData = stats.days.map(row => { const r = Object.assign({}, row); (stats.fxSyms || []).forEach(s => { if (fxKip[s]) r['fxk_' + s] = (row['fx_' + s] || 0) * fxKip[s]; }); return r; });
+  const homeRanges = [['day', t.r_day], ['week', t.r_week], ['month', t.r_month], ['year', t.r_year], ['all', t.r_all]];
+  const homeChartRows = (() => {
+    const pad = n => (n < 10 ? '0' : '') + n;
+    const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    const now = new Date();
+    const buckets = []; const map = {}; const fxSyms = [];
+    const ensure = (key, label) => { if (!map[key]) { map[key] = { label: label, income: 0, expense: 0, fx: {} }; buckets.push(map[key]); } return map[key]; };
+    const put = (key, tx) => { if (!map[key]) return; const amt = tx.amount || 0; if (tx.currency && tx.currency !== CUR) { if (fxSyms.indexOf(tx.currency) === -1) fxSyms.push(tx.currency); map[key].fx[tx.currency] = (map[key].fx[tx.currency] || 0) + (tx.type === 'income' ? amt : -amt); return; } if (tx.type === 'income') map[key].income += amt; else map[key].expense += amt; };
+    if (homeRange === 'day') {
+      for (let i = 13; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); ensure(ymd(d), d.getDate() + '/' + (d.getMonth() + 1)); }
+      transactions.forEach(tx => { if (tx) put(String(tx.date || '').slice(0, 10), tx); });
+    } else if (homeRange === 'week') {
+      const mon = d => { const x = new Date(d); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); x.setHours(0, 0, 0, 0); return x; };
+      for (let i = 7; i >= 0; i--) { const d = mon(now); d.setDate(d.getDate() - i * 7); ensure(ymd(d), d.getDate() + '/' + (d.getMonth() + 1)); }
+      transactions.forEach(tx => { if (tx && tx.date) put(ymd(mon(new Date(tx.date + 'T00:00:00'))), tx); });
+    } else if (homeRange === 'month') {
+      for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); ensure(d.getFullYear() + '-' + pad(d.getMonth() + 1), (d.getMonth() + 1) + '/' + String(d.getFullYear()).slice(2)); }
+      transactions.forEach(tx => { if (tx) put(String(tx.date || '').slice(0, 7), tx); });
+    } else if (homeRange === 'year') {
+      for (let i = 4; i >= 0; i--) { const y = now.getFullYear() - i; ensure(String(y), String(y)); }
+      transactions.forEach(tx => { if (tx) put(String(tx.date || '').slice(0, 4), tx); });
+    } else {
+      const ds = transactions.filter(Boolean).map(tx => String(tx.date || '').slice(0, 10)).filter(Boolean).sort();
+      if (!ds.length) return [];
+      const first = new Date(ds[0] + 'T00:00:00');
+      const span = (now.getFullYear() - first.getFullYear()) * 12 + (now.getMonth() - first.getMonth());
+      if (span > 24) {
+        for (let y = first.getFullYear(); y <= now.getFullYear(); y++) ensure(String(y), String(y));
+        transactions.forEach(tx => { if (tx) put(String(tx.date || '').slice(0, 4), tx); });
+      } else {
+        const d = new Date(first.getFullYear(), first.getMonth(), 1);
+        while (d <= now) { ensure(d.getFullYear() + '-' + pad(d.getMonth() + 1), (d.getMonth() + 1) + '/' + String(d.getFullYear()).slice(2)); d.setMonth(d.getMonth() + 1); }
+        transactions.forEach(tx => { if (tx) put(String(tx.date || '').slice(0, 7), tx); });
+      }
+    }
+    buckets.forEach(b => { fxSyms.forEach(sym => { b['fx_' + sym] = (b.fx && b.fx[sym]) || 0; }); });
+    return buckets;
+  })();
+  const homeChartFxSyms = homeChartRows.length ? Object.keys(homeChartRows[0]).filter(k => k.indexOf('fx_') === 0).map(k => k.slice(3)) : [];
+  const homeFxKip = {}; homeChartFxSyms.forEach(s => { const k = fxToPrimary(fxRates, s, (CURS.find(x => x && x.sym === s) || {}).code, CUR, fxSymToCode(CUR)); if (k > 0) homeFxKip[s] = k; });
+  const homeChartData = homeChartRows.map(b => { const r = Object.assign({}, b); homeChartFxSyms.forEach(s => { if (homeFxKip[s]) r['fxk_' + s] = (b['fx_' + s] || 0) * homeFxKip[s]; }); return r; });
+  const homeChartNet = homeChartRows.reduce((s, b) => s + (b.income - b.expense), 0);
   const saveSettings = () => {
     const next = {
       ...settings,
@@ -18720,10 +18767,8 @@ function Paruay() {
       letterSpacing: '0.05em',
       textTransform: 'uppercase'
     }
-  }, t.last_7_days), (() => {
-    const sumIn = stats.days.reduce((s, d) => s + (d.income || 0), 0);
-    const sumOut = stats.days.reduce((s, d) => s + (d.expense || 0), 0);
-    const net = sumIn - sumOut;
+  }, t.flow_title), (() => {
+    const net = homeChartNet;
     return /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: 'right'
@@ -18735,7 +18780,7 @@ function Paruay() {
         letterSpacing: '0.05em'
       },
       className: langClass
-    }, "NET 7D"), /*#__PURE__*/React.createElement("div", {
+    }, t.net_label), /*#__PURE__*/React.createElement("div", {
       className: "display",
       style: {
         fontSize: 14,
@@ -18744,11 +18789,11 @@ function Paruay() {
         lineHeight: 1
       }
     }, net >= 0 ? '+' : '', CUR + " ", fmt(net)));
-  })()), /*#__PURE__*/React.createElement(ResponsiveContainer, {
+  })()), /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 3, background: '#F1ECE0', borderRadius: 12, padding: 4, marginBottom: 12 } }, homeRanges.map(r => /*#__PURE__*/React.createElement("button", { key: r[0], onClick: () => setHomeRange(r[0]), className: langClass, style: { flex: 1, border: 'none', borderRadius: 9, padding: '7px 2px', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: homeRange === r[0] ? '#1B4332' : 'transparent', color: homeRange === r[0] ? '#F5EFE0' : '#7F5539' } }, r[1]))), /*#__PURE__*/React.createElement(ResponsiveContainer, {
     width: "100%",
     height: 180
   }, /*#__PURE__*/React.createElement(LineChart, {
-    data: chartData,
+    data: homeChartData,
     margin: {
       top: 20,
       right: 16,
@@ -18924,7 +18969,7 @@ function Paruay() {
           fontWeight: 700,
           color: net >= 0 ? '#7BBB94' : '#F5C8B8'
         }
-      }, net > 0 ? '+' : '', CUR + " ", fmt(net))), (function () { var items = (stats.fxSyms || []).map(function (s, i) { var orig = d['fx_' + s] || 0; var kip = d['fxk_' + s]; if (!orig && !(kip > 0)) return null; return React.createElement("div", { key: 'fxtt' + s, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 } }, React.createElement("span", { className: "display", style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 } }, React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: FX_LINE_COLORS[i % FX_LINE_COLORS.length] } }), (orig > 0 ? '+' : '') + s + ' ' + fmt(orig)), (kip > 0 ? React.createElement("span", { style: { fontSize: 10, color: '#B8A88F' } }, '≈ ' + CUR + ' ' + fmt(Math.round(kip))) : null)); }).filter(Boolean); return items.length ? React.createElement("div", { style: { borderTop: '1px dashed rgba(245,239,224,0.18)', marginTop: 6, paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 3 } }, items) : null; })());
+      }, net > 0 ? '+' : '', CUR + " ", fmt(net))), (function () { var items = homeChartFxSyms.map(function (s, i) { var orig = d['fx_' + s] || 0; var kip = d['fxk_' + s]; if (!orig && !(kip > 0)) return null; return React.createElement("div", { key: 'fxtt' + s, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 } }, React.createElement("span", { className: "display", style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 } }, React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: FX_LINE_COLORS[i % FX_LINE_COLORS.length] } }), (orig > 0 ? '+' : '') + s + ' ' + fmt(orig)), (kip > 0 ? React.createElement("span", { style: { fontSize: 10, color: '#B8A88F' } }, '≈ ' + CUR + ' ' + fmt(Math.round(kip))) : null)); }).filter(Boolean); return items.length ? React.createElement("div", { style: { borderTop: '1px dashed rgba(245,239,224,0.18)', marginTop: 6, paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 3 } }, items) : null; })());
     }
   }), /*#__PURE__*/React.createElement(Line, {
     type: "monotone",
@@ -18960,7 +19005,7 @@ function Paruay() {
       stroke: '#FBF6E9',
       strokeWidth: 2
     }
-  }), (stats.fxSyms || []).map((sym, i) => fxKip[sym] ? /*#__PURE__*/React.createElement(Line, {
+  }), homeChartFxSyms.map((sym, i) => homeFxKip[sym] ? /*#__PURE__*/React.createElement(Line, {
     key: 'kfxln' + sym,
     type: 'monotone',
     dataKey: 'fxk_' + sym,
@@ -19016,7 +19061,7 @@ function Paruay() {
     style: {
       color: '#7F5539'
     }
-  }, t.expense_label)), (stats.fxSyms || []).map((sym, i) => /*#__PURE__*/React.createElement("span", {
+  }, t.expense_label)), homeChartFxSyms.map((sym, i) => /*#__PURE__*/React.createElement("span", {
     key: 'hfxlg' + sym,
     className: "display",
     style: {
@@ -19032,15 +19077,20 @@ function Paruay() {
       borderTop: '2px dashed ' + FX_LINE_COLORS[i % FX_LINE_COLORS.length]
     }
   }), sym))), (() => {
-    const tn = new Date();
-    const todayStr2 = tn.toISOString().slice(0, 10);
-    const st = new Date(tn); st.setDate(st.getDate() - 6);
-    const startStr = st.toISOString().slice(0, 10);
+    const pad2 = n => (n < 10 ? '0' : '') + n;
+    const ymd2 = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    const now2 = new Date();
+    let ws = '';
+    if (homeRange === 'day') { const d = new Date(now2); d.setDate(d.getDate() - 13); ws = ymd2(d); }
+    else if (homeRange === 'week') { const x = new Date(now2); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd - 49); ws = ymd2(x); }
+    else if (homeRange === 'month') { ws = ymd2(new Date(now2.getFullYear(), now2.getMonth() - 11, 1)); }
+    else if (homeRange === 'year') { ws = ymd2(new Date(now2.getFullYear() - 4, 0, 1)); }
     const fo = {};
     for (const x of transactions) {
       if (!x || !(x.currency && x.currency !== CUR)) continue;
       const d = typeof x.date === 'string' ? x.date : '';
-      if (!d || d < startStr || d > todayStr2) continue;
+      if (!d) continue;
+      if (ws && d < ws) continue;
       const f = fo[x.currency] || (fo[x.currency] = { income: 0, expense: 0 });
       if (x.type === 'income') f.income += (x.amount || 0); else f.expense += (x.amount || 0);
     }
