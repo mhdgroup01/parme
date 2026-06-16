@@ -23,19 +23,19 @@ UI = {
    'ph':'ค้นหาฟังก์ชัน เช่น หารบิล, งบประมาณ, QR, ดอกเบี้ย ...','introTag':'หน้าจอหลัก',
    'introText':'เมื่อเปิดแอป คุณจะเห็น <b>การ์ดยอดเงิน</b> สีเขียวอยู่บนสุด ใต้ลงมาคือปุ่ม <b>รายรับ/รายจ่าย</b> สำหรับบันทึกเร็ว และแถว <b>ปุ่มเมนู 5 ปุ่ม</b> สำหรับฟีเจอร์หลัก — แตะหัวข้อทางซ้าย (หรือเมนู ☰ บนมือถือ) เพื่อข้ามไปยังส่วนที่สนใจได้เลย',
    'footer':'พารวย (Paruay) · คู่มือการใช้งาน · อัปเดต 16 มิ.ย. 2026','openApp':'เปิดแอป:',
-   'mTotal':'ยอดเงินทั้งหมด','mIn':'+ รายรับ','mOut':'▽ รายจ่าย'},
+   'mTotal':'ยอดเงินทั้งหมด','mIn':'+ รายรับ','mOut':'▽ รายจ่าย','back':'หน้าแรก'},
  'lo': {'title':'ຄູ່ມືການນຳໃຊ້ ພາລວຍ','brandSub':'Paruay · ຄູ່ມື','start':'ເລີ່ມຕົ້ນ / ພາບລວມ',
    'sub':'ແອັບຈັດການເງິນຄົບໃນແອັບດຽວ — ບັນທຶກລາຍຮັບລາຍຈ່າຍ, ຫານບິນກັບໝູ່, ໃຫ້ຢືມ, ຈັດການເງິນຄອບຄົວ, ເປີດຮ້ານຂາຍເຄື່ອງ (POS), ອອກທິບ ແລະ ຫຼິ້ນເກມ. ຄູ່ມືນີ້ລວມທຸກຟັງຊັນໃຫ້ຜູ້ໃຊ້ມືໃໝ່ເລີ່ມໄດ້ທັນທີ',
    'ph':'ຄົ້ນຫາຟັງຊັນ ເຊັ່ນ ຫານບິນ, ງົບປະມານ, QR, ດອກເບ້ຍ ...','introTag':'ໜ້າຈໍຫຼັກ',
    'introText':'ເມື່ອເປີດແອັບ ທ່ານຈະເຫັນ <b>ກາດຍອດເງິນ</b> ສີຂຽວຢູ່ເທິງສຸດ ໃຕ້ລົງມາຄືປຸ່ມ <b>ລາຍຮັບ/ລາຍຈ່າຍ</b> ສຳລັບບັນທຶກໄວ ແລະ ແຖວ <b>ປຸ່ມເມນູ 5 ປຸ່ມ</b> ສຳລັບຟີເຈີຫຼັກ — ແຕະຫົວຂໍ້ທາງຊ້າຍ (ຫຼື ເມນູ ☰ ເທິງມືຖື) ເພື່ອຂ້າມໄປຫາສ່ວນທີ່ສົນໃຈໄດ້ເລີຍ',
    'footer':'ພາລວຍ (Paruay) · ຄູ່ມືການນຳໃຊ້ · ອັບເດດ 16 ມິ.ຖ. 2026','openApp':'ເປີດແອັບ:',
-   'mTotal':'ຍອດເງິນທັງໝົດ','mIn':'+ ລາຍຮັບ','mOut':'▽ ລາຍຈ່າຍ'},
+   'mTotal':'ຍອດເງິນທັງໝົດ','mIn':'+ ລາຍຮັບ','mOut':'▽ ລາຍຈ່າຍ','back':'ໜ້າຫຼັກ'},
  'en': {'title':'Paruay User Guide','brandSub':'Paruay · Guide','start':'Getting started / Overview',
    'sub':'An all-in-one money app — log income & expenses, split bills with friends, lend money, manage family finances, run a shop (POS), take trips, and play games. This guide covers every feature so new users can start right away.',
    'ph':'Search features e.g. split bill, budget, QR, interest ...','introTag':'Home screen',
    'introText':"When you open the app you'll see the green <b>Balance card</b> on top, then the <b>Income / Expense</b> quick buttons, and a row of <b>5 menu buttons</b> for the main features — tap a topic on the left (or the ☰ menu on mobile) to jump to any section.",
    'footer':'Paruay · User Guide · Updated 16 Jun 2026','openApp':'Open the app:',
-   'mTotal':'Total balance','mIn':'+ Income','mOut':'▽ Expense'},
+   'mTotal':'Total balance','mIn':'+ Income','mOut':'▽ Expense','back':'Home'},
 }
 TIPLBL = {'th':'💡 เคล็ดลับ:','lo':'💡 ເຄັດລັບ:','en':'💡 Tip:'}
 LANGNAME = {'th':'ไทย','lo':'ລາວ','en':'EN'}
@@ -186,6 +186,12 @@ body.lang-th .LB.th,body.lang-lo .LB.lo,body.lang-en .LB.en{display:block}
 .tlang{border:1px solid var(--line2);background:#fff;color:var(--brown);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 .tlang.on{background:var(--forest);color:#F5EFE0}
 .burger{width:42px;height:42px;border:1px solid var(--line2);background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--forest)}
+.tleft{display:flex;align-items:center;gap:8px;min-width:0}
+.backbtn{width:40px;height:40px;border:1px solid var(--line2);background:#fff;border-radius:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;color:var(--forest);font-weight:800;flex:0 0 auto;font-family:inherit;line-height:1}
+.backbtn:active{background:var(--cream2)}
+.backlink{display:flex;align-items:center;gap:9px;margin:0 6px 14px;padding:11px 13px;border:1px solid var(--line2);background:#fff;border-radius:13px;color:var(--forest);font-weight:700;font-size:14.5px;cursor:pointer;font-family:inherit;width:auto}
+.backlink:hover{background:var(--cream2)}
+.backlink .ar{font-size:18px;font-weight:800}
 main{min-width:0;padding:0 clamp(16px,3vw,40px) 80px}
 .search{position:relative;margin:18px 0 8px}
 .search input{width:100%;padding:13px 14px 13px 42px;border:1px solid var(--line2);border-radius:14px;background:#fff;font-size:15px;font-family:inherit;color:var(--brown2);outline:none}
@@ -240,10 +246,11 @@ HTML = """<!doctype html><html lang="lo"><head>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Noto+Serif+Lao:wght@600;700&family=Noto+Sans+Lao:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Noto+Serif+Thai:wght@600;700&display=swap" rel="stylesheet">
 <style>__CSS__</style></head><body class="lang-lo">
-<div class="topbar"><b class="display">ພາລວຍ</b><div class="right"><button class="tlang" data-l="lo">ລາວ</button><button class="tlang" data-l="th">ไทย</button><button class="tlang" data-l="en">EN</button><button class="burger" id="burger" aria-label="menu">☰</button></div></div>
+<div class="topbar"><div class="tleft"><button class="backbtn" onclick="goBackApp()" aria-label="back">←</button><b class="display">ພາລວຍ</b></div><div class="right"><button class="tlang" data-l="lo">ລາວ</button><button class="tlang" data-l="th">ไทย</button><button class="tlang" data-l="en">EN</button><button class="burger" id="burger" aria-label="menu">☰</button></div></div>
 <div class="scrim" id="scrim"></div>
 <div class="wrap">
 <aside class="sidebar" id="sidebar">
+ <button class="backlink" onclick="goBackApp()"><span class="ar">←</span><span>__BACK__</span></button>
  <div class="brand"><div class="logo display">ພ</div><div><b class="display">ພາລວຍ</b><small>Paruay · Guide</small></div></div>
  <div class="langbar">__LANGBTNS__</div>
  <div class="nav-group"><div class="gh"><span class="dot" style="background:#1B4332"></span><a href="#top" style="padding:0">__START__</a></div></div>
@@ -282,6 +289,7 @@ var burger=document.getElementById('burger'),scrim=document.getElementById('scri
 function closeNav(){document.body.classList.remove('nav-open')}
 burger.onclick=function(){document.body.classList.toggle('nav-open')};scrim.onclick=closeNav;
 document.querySelectorAll('.sidebar a').forEach(function(a){a.addEventListener('click',closeNav)});
+function goBackApp(){try{if(history.length>1&&(document.referrer||'').indexOf(location.host)>-1){history.back();return;}}catch(e){}location.href='index.html';}
 var links=[].slice.call(document.querySelectorAll('.nav-group a[href^="#sec"]'));
 var map={};links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a});
 var io=new IntersectionObserver(function(es){es.forEach(function(e){var a=map[e.target.id];if(!a)return;if(e.isIntersecting){links.forEach(function(x){x.classList.remove('active')});a.classList.add('active');}});},{rootMargin:'-72px 0px -70% 0px'});
@@ -303,7 +311,7 @@ repl = {
  '__PHTH__':esc(UI['th']['ph']),'__PHLO__':esc(UI['lo']['ph']),'__PHEN__':esc(UI['en']['ph']),
  '__INTROTAG__':uispan('introTag'),'__INTROTEXT__':''.join('<span class="Lx %s">%s</span>'%(L,UI[L]['introText']) for L in LANGS),
  '__MTOTAL__':uispan('mTotal'),'__MIN__':uispan('mIn'),'__MOUT__':uispan('mOut'),'__MOCKMENU__':mock_menu,
- '__CHAPWRAPS__':chapwraps,'__FOOTER__':uispan('footer'),'__OPENAPP__':uispan('openApp'),
+ '__CHAPWRAPS__':chapwraps,'__FOOTER__':uispan('footer'),'__OPENAPP__':uispan('openApp'),'__BACK__':uispan('back'),
 }
 for k,v in repl.items(): HTML=HTML.replace(k,v)
 io.open(OUT,'w',encoding='utf-8').write(HTML)
