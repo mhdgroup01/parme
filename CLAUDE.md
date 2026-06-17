@@ -94,11 +94,11 @@ GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) 
 ## Demo mode (v3.7.88+) — เปิด UI หลัง login ได้โดยไม่ต้องล็อกอินจริง
 เพิ่ม `?demo=1` ใน URL → bypass Supabase auth + seed localStorage (7 transactions + 2 IOUs) → เปิดหน้าหลัก/รายงาน/Family/POS ในพรีวิวได้เลย ไม่กระทบ Supabase production. กลไก: `__fakeSupabase` stub (chainable .from() คืน empty array) + `__DEMO__` ตรวจ URL + early-return ใน auth useEffect + loadCloudData. ใช้สำหรับ Claude ตรวจ UI/UX bug ในพรีวิวก่อน deploy.
 
-## งานค้าง (ณ v3.7.40)
-- ขยาย product catalog (รับรูป → ลบพื้นหลังดำ → webp 256px q80 → อัปเดต `catalog/catalog.json` + zip ไม่ต้อง bump แอป)
-- **2.3 cursor polling** (transactions/ious) — รอ SQL: ADD `updated_at` + `deleted_at` columns + trigger + composite indexes
-- ✅ **2.4 admin dashboard RPC** — client wire ไว้แล้ว (v3.7.50+, graceful fallback). SQL พร้อมรันที่ `tools/migrations/2026-06-17-admin-dashboard-summary.sql` (M รันที่ Supabase) → admin stats จะ aggregate ฝั่ง server ครอบทุก row. validate ด้วย pglast แล้ว, แก้บั๊ก sparse hourly/weekday (ต้อง length 24/7 เป๊ะ)
-- **Phase 2.1b / 2.2b** ตัด `loadDetail()/loadShopData()` ออกจาก local writes (ต้องการ optimistic update เต็ม) — ทำเมื่อมั่นใจ delta-merge เสถียร
+## งานค้าง (ณ v3.7.97)
+- ขยาย product catalog (รับรูป → ลบพื้นหลังดำ → webp 256px q80 → อัปเดต `catalog/catalog.json` + zip ไม่ต้อง bump แอป) — *ต้องมีรูปจริงจาก M*
+- ✅ **2.3 cursor polling** (transactions/ious) — **เสร็จแล้ว**: client ใช้ `.gt('updated_at', txCursorRef)` (full/delta/first mode + `cursorDisabledRef` fallback, pollForUpdates ~L12848) + SQL `tools/migrations/2026-06-16-cursor-polling-updated-at.sql` (top-level = run แล้ว)
+- ✅ **2.4 admin dashboard RPC** — **เสร็จแล้ว** (2026-06-17): client wire ไว้ตั้งแต่ v3.7.50 + SQL `tools/migrations/2026-06-17-admin-dashboard-summary.sql` รันที่ Supabase แล้ว (verified: hourly=24/weekday=7, dau/mau คืนค่าถูก). แก้บั๊ก sparse hourly/weekday จาก draft v2.
+- **Phase 2.1b / 2.2b** ตัด `loadDetail()/loadShopData()` ออกจาก local writes (ต้องการ optimistic update เต็ม) — ⚠️ เสี่ยง: แตะ core money-sync, ทำเมื่อมั่นใจ delta-merge เสถียร + ต้องเทสต์ multi-device จริง (เทสต์ใน demo mode ไม่ได้ เพราะ supabase stub)
 
 ## sprint ที่ทำแล้ว (2026-06-15/16)
 ดู `docs/2026-06-15-research-action-plan.md` สำหรับรายละเอียดงานวิจัย (52-agent workflow + adversarial verify)
