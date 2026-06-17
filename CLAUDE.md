@@ -94,8 +94,9 @@ GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) 
 ## Demo mode (v3.7.88+) — เปิด UI หลัง login ได้โดยไม่ต้องล็อกอินจริง
 เพิ่ม `?demo=1` ใน URL → bypass Supabase auth + seed localStorage (7 transactions + 2 IOUs) → เปิดหน้าหลัก/รายงาน/Family/POS ในพรีวิวได้เลย ไม่กระทบ Supabase production. กลไก: `__fakeSupabase` stub (chainable .from() คืน empty array) + `__DEMO__` ตรวจ URL + early-return ใน auth useEffect + loadCloudData. ใช้สำหรับ Claude ตรวจ UI/UX bug ในพรีวิวก่อน deploy.
 
-## ⚠️ ต้องรัน SQL (v3.7.98) — POS ลูกค้าเชื่อ
-`tools/migrations/2026-06-17-pos-customer-credit.sql` — เพิ่มคอลัมน์ `paid`/`customer`/`settled_at` ใน `pos_sales`. **สำคัญ:** client v3.7.98+ ส่ง 3 คอลัมน์นี้ในทุก upsert ของการขาย → ถ้ายังไม่รัน SQL การ sync ขายขึ้น cloud จะ fail เงียบ ๆ (try/catch — ข้อมูลไม่หาย เซฟ local ปกติ แต่ไม่ขึ้นเครื่องอื่นจนกว่าจะรัน SQL). ฟีเจอร์ "ลงเชื่อ" verified ใน demo แล้ว (create→panel→settle ครบ).
+## ⚠️ ต้องรัน SQL (v3.7.98–99) — POS ลูกค้าเชื่อ + วิธีจ่าย
+1. `tools/migrations/2026-06-17-pos-customer-credit.sql` — เพิ่มคอลัมน์ `paid`/`customer`/`settled_at` ใน `pos_sales`. **สำคัญ:** client v3.7.98+ ส่ง 3 คอลัมน์นี้ในทุก upsert ของการขาย → ถ้ายังไม่รัน SQL การ sync ขายขึ้น cloud จะ fail เงียบ ๆ (try/catch — ข้อมูลไม่หาย เซฟ local ปกติ แต่ไม่ขึ้นเครื่องอื่นจนกว่าจะรัน SQL). ฟีเจอร์ "ลงเชื่อ" verified ใน demo แล้ว (create→panel→settle ครบ).
+2. `tools/migrations/2026-06-17-pos-payment-method.sql` — เพิ่มคอลัมน์ `payment` (text = cash/transfer/null) ใน `pos_sales`. client v3.7.99+ ส่ง `payment` ทุก upsert → เหตุผลเดียวกับข้อ 1 (ต้องรันคู่กัน). ฟีเจอร์ "ระบุวิธีจ่าย" เปิด/ปิดได้ในตั้งค่า POS (toggle เก็บ localStorage `paruay_pos_pay_mode`); ปิดอยู่ → `payment` = null. verified ใน demo (เปิด toggle → ขาย→chooser→cash/transfer → report แยกชิป 💵 เງິນສົດ / 📱 ໂอน).
 
 ## งานค้าง (ณ v3.7.98)
 - ขยาย product catalog (รับรูป → ลบพื้นหลังดำ → webp 256px q80 → อัปเดต `catalog/catalog.json` + zip ไม่ต้อง bump แอป) — *ต้องมีรูปจริงจาก M*
