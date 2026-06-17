@@ -98,7 +98,13 @@ GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) 
 1. `tools/migrations/2026-06-17-pos-customer-credit.sql` — เพิ่มคอลัมน์ `paid`/`customer`/`settled_at` ใน `pos_sales`. **สำคัญ:** client v3.7.98+ ส่ง 3 คอลัมน์นี้ในทุก upsert ของการขาย → ถ้ายังไม่รัน SQL การ sync ขายขึ้น cloud จะ fail เงียบ ๆ (try/catch — ข้อมูลไม่หาย เซฟ local ปกติ แต่ไม่ขึ้นเครื่องอื่นจนกว่าจะรัน SQL). ฟีเจอร์ "ลงเชื่อ" verified ใน demo แล้ว (create→panel→settle ครบ).
 2. `tools/migrations/2026-06-17-pos-payment-method.sql` — เพิ่มคอลัมน์ `payment` (text = cash/transfer/null) ใน `pos_sales`. client v3.7.99+ ส่ง `payment` ทุก upsert → เหตุผลเดียวกับข้อ 1 (ต้องรันคู่กัน). ฟีเจอร์ "ระบุวิธีจ่าย" เปิด/ปิดได้ในตั้งค่า POS (toggle เก็บ localStorage `paruay_pos_pay_mode`); ปิดอยู่ → `payment` = null. verified ใน demo (เปิด toggle → ขาย→chooser→cash/transfer → report แยกชิป 💵 เງິນສົດ / 📱 ໂอน).
 
-## งานค้าง (ณ v3.7.98)
+## POS Tier 1 (เสริมร้าน POS — จาก audit)
+- ✅ **#1 ลูกค้าเชื่อ** (v3.7.98) — ดู section "ต้องรัน SQL" ด้านบน
+- ✅ **#2 ระบุวิธีจ่าย เงินสด/โอน + toggle** (v3.7.99) — ดู section "ต้องรัน SQL" ด้านบน
+- ✅ **#3 Export CSV** (v3.7.100) — **client ล้วน ไม่แตะ DB ไม่ต้องรัน SQL**. ปุ่ม 📤 ในแถบ range ของ PosReport → ดึงบิลตามช่วงที่เลือก (วัน/เดือน/ปี/ทั้งหมด) เป็น CSV. 1 แถว/บิล, 15 คอลัมน์ (วันที่/เวลา/รหัสบิล/โต๊ะ/รายการ/ยอดย่อย/ส่วนลด/ค่าบริการ/รวม/ต้นทุน/กำไร/การจ่าย/สถานะ/ลูกค้า/ผู้ขาย). มี BOM (Excel อ่าน Lao/Thai ได้), CSV-injection guard (=+-@ → prefix '), RFC-4180 escaping, CRLF, ตัวเลขดิบ (ไม่ใช้ fmt). iOS: ลอง `navigator.share({files})` ก่อน → fallback `<a download>`. ใช้ inline `T()` ล้วน (PosReport ไม่มี `t` ใน scope). helper `exportCsv`/`filtRows`/`csvCols` อยู่ใน PosReport (~L30075). verified ใน demo (จับ blob จริง: header ลาวถูกครบ + escaping ผ่าน adversarial name `=Boon, "VIP"`).
+
+## งานค้าง (ณ v3.7.100)
+- Tier 1 #4+ (ถ้าจะทำต่อ): ดูจาก POS audit — เช่น พิมพ์ใบเสร็จ/แชร์, สต็อกสินค้า, กะ/รอบขาย ฯลฯ
 - ขยาย product catalog (รับรูป → ลบพื้นหลังดำ → webp 256px q80 → อัปเดต `catalog/catalog.json` + zip ไม่ต้อง bump แอป) — *ต้องมีรูปจริงจาก M*
 - ✅ **2.3 cursor polling** (transactions/ious) — **เสร็จแล้ว**: client ใช้ `.gt('updated_at', txCursorRef)` (full/delta/first mode + `cursorDisabledRef` fallback, pollForUpdates ~L12848) + SQL `tools/migrations/2026-06-16-cursor-polling-updated-at.sql` (top-level = run แล้ว)
 - ✅ **2.4 admin dashboard RPC** — **เสร็จแล้ว** (2026-06-17): client wire ไว้ตั้งแต่ v3.7.50 + SQL `tools/migrations/2026-06-17-admin-dashboard-summary.sql` รันที่ Supabase แล้ว (verified: hourly=24/weekday=7, dau/mau คืนค่าถูก). แก้บั๊ก sparse hourly/weekday จาก draft v2.
