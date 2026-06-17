@@ -94,7 +94,10 @@ GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) 
 ## Demo mode (v3.7.88+) — เปิด UI หลัง login ได้โดยไม่ต้องล็อกอินจริง
 เพิ่ม `?demo=1` ใน URL → bypass Supabase auth + seed localStorage (7 transactions + 2 IOUs) → เปิดหน้าหลัก/รายงาน/Family/POS ในพรีวิวได้เลย ไม่กระทบ Supabase production. กลไก: `__fakeSupabase` stub (chainable .from() คืน empty array) + `__DEMO__` ตรวจ URL + early-return ใน auth useEffect + loadCloudData. ใช้สำหรับ Claude ตรวจ UI/UX bug ในพรีวิวก่อน deploy.
 
-## งานค้าง (ณ v3.7.97)
+## ⚠️ ต้องรัน SQL (v3.7.98) — POS ลูกค้าเชื่อ
+`tools/migrations/2026-06-17-pos-customer-credit.sql` — เพิ่มคอลัมน์ `paid`/`customer`/`settled_at` ใน `pos_sales`. **สำคัญ:** client v3.7.98+ ส่ง 3 คอลัมน์นี้ในทุก upsert ของการขาย → ถ้ายังไม่รัน SQL การ sync ขายขึ้น cloud จะ fail เงียบ ๆ (try/catch — ข้อมูลไม่หาย เซฟ local ปกติ แต่ไม่ขึ้นเครื่องอื่นจนกว่าจะรัน SQL). ฟีเจอร์ "ลงเชื่อ" verified ใน demo แล้ว (create→panel→settle ครบ).
+
+## งานค้าง (ณ v3.7.98)
 - ขยาย product catalog (รับรูป → ลบพื้นหลังดำ → webp 256px q80 → อัปเดต `catalog/catalog.json` + zip ไม่ต้อง bump แอป) — *ต้องมีรูปจริงจาก M*
 - ✅ **2.3 cursor polling** (transactions/ious) — **เสร็จแล้ว**: client ใช้ `.gt('updated_at', txCursorRef)` (full/delta/first mode + `cursorDisabledRef` fallback, pollForUpdates ~L12848) + SQL `tools/migrations/2026-06-16-cursor-polling-updated-at.sql` (top-level = run แล้ว)
 - ✅ **2.4 admin dashboard RPC** — **เสร็จแล้ว** (2026-06-17): client wire ไว้ตั้งแต่ v3.7.50 + SQL `tools/migrations/2026-06-17-admin-dashboard-summary.sql` รันที่ Supabase แล้ว (verified: hourly=24/weekday=7, dau/mau คืนค่าถูก). แก้บั๊ก sparse hourly/weekday จาก draft v2.
