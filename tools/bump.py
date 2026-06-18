@@ -25,7 +25,7 @@ def norm(v):
 
 def patterns(ver):
     return [
-        ("title",       f"<title>ພາລວຍ · Paruay {ver}</title>"),
+        ("title",       f"<title>ພາme · Parme {ver}</title>"),
         ("meta",        f'name="app-version" content="{ver}"'),
         ("version-tag", f'class="version-tag">{ver}<'),
         ("APP_VERSION", f"APP_VERSION = '{ver}'"),
