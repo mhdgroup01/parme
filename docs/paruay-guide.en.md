@@ -1,6 +1,6 @@
-# Paruay User Guide
+# Parme User Guide
 
-Paruay is an all-in-one money app — personal income/expense tracking, splitting bills and lending with friends, family/group finances, a point-of-sale (POS) shop system, group trips, and even games. This article walks through every feature, topic by topic, so new users can get started right away.
+Parme is an all-in-one money app — personal income/expense tracking, splitting bills and lending with friends, family/group finances, a point-of-sale (POS) shop system, group trips, and even games. This article walks through every feature, topic by topic, so new users can get started right away.
 
 ## 1. Personal Finance
 
@@ -114,7 +114,7 @@ This section helps you stay on top of money owed and never miss what's happening
 
 **Red Badges on Menu Buttons (Split Bill / Lend)** — Menu buttons show a red number badge when there are requests waiting for you. The 'Split Bill' button shows how many IOU requests are pending, and the 'Lend' button shows pending loan requests. The Accounts button rolls it all up, so you can spot it at a glance without digging in. How to: Check the 'Split Bill' button — the red number is how many IOU requests are awaiting confirmation → Check the 'Lend' button — the red number is how many loan requests are waiting → Tap any button with a red badge to handle the pending requests. *(Tip: The numbers update in real time — once you've handled a request, the red badge disappears right away)*
 
-## 3. Family/Group & Group Trips (Paruay)
+## 3. Family/Group & Group Trips (Parme)
 
 ### 👨‍👩‍👧‍👦 Family / Group
 
@@ -202,7 +202,7 @@ Manage your sales team together, track sales, profit, and best-sellers, and get 
 
 **Red-dot alerts + phone notifications (Web Push)** — When a new customer order comes in, the POS button shows a red dot with a count, and you can get a push notification on your phone even when the app is closed. How to: Watch for the red dot on the 'Sell (POS)' button on your home screen = orders are waiting → Go to Settings and turn on 'Order alerts on my phone' → Allow notifications when prompted → From then on, you'll get a phone notification for every new order, even with the app closed. *(Tip: iPhone users need to add the app to their home screen first, then allow notifications, for this to work)*
 
-## 5. Games, Settings & System (Paruay)
+## 5. Games, Settings & System (Parme)
 
 ### 🎮 Play Games with Friends
 
@@ -238,7 +238,7 @@ The Settings page lets you adjust the language, currency, card style, notificati
 
 This section covers the behind-the-scenes stuff: installing the app to your home screen, signing in to back up your data to the cloud, and real-time syncing.
 
-**Install the app to your home screen (PWA)** — Add Paruay to your phone's home screen so it opens fast and works like a real app — no need to visit a website every time. How to: On the Settings page, find the "Install as App" section → Tap the "📱 Install" button → On iPhone: tap the Share button, then choose "Add to Home Screen" → On Android: tap the ⋮ menu, then choose "Install App". *(Tip: Once installed, the Settings page shows "✓ Installed" in place of the install button)*
+**Install the app to your home screen (PWA)** — Add Parme to your phone's home screen so it opens fast and works like a real app — no need to visit a website every time. How to: On the Settings page, find the "Install as App" section → Tap the "📱 Install" button → On iPhone: tap the Share button, then choose "Add to Home Screen" → On Android: tap the ⋮ menu, then choose "Install App". *(Tip: Once installed, the Settings page shows "✓ Installed" in place of the install button)*
 
 **Sign in / create an account** — Sign in to back up your data to the cloud and play games or share with friends. You can sign in with Google, or register with a username/email and password. How to: When you first open the app, you'll see a welcome screen → Tap "Sign in with Google," or enter your username/email and password → Don't have an account yet? Tap "Sign Up" and set a password (at least 6 characters) → The first time, you may be asked for your birthday and gender (just once). *(Tip: You can see which account you're signed in to on the Settings page, and tap "Sign Out" anytime. Note: if you open the app directly from a file, Google sign-in won't work — you'll need to open it through a web link)*
 
@@ -247,4 +247,4 @@ This section covers the behind-the-scenes stuff: installing the app to your home
 **Data security** — Your data is tied to your account, and others only see what you share (like an IOU or a game invite). Deleting all your data requires typing a confirmation word to prevent accidental deletion. How to: Your income and expense data is private and tied to your signed-in account → To delete everything, go to the "Danger Zone" and tap "🗑️ Delete All Data" → Type the word "Yes" to confirm (the button only works once you do) → Confirm once more before it's permanently deleted. *(Tip: Deleting all data can't be undone — it removes all your income, expenses, IOUs, loans, trips, friends, and notifications. Only use it when you're completely sure)*
 
 ---
-Open the app: **mhdgroup01.github.io/paruay** · Web guide: **mhdgroup01.github.io/paruay/guide.html**
+Open the app: **parme.me** · Web guide: **parme.me/guide.html**
