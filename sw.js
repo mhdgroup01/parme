@@ -12,6 +12,7 @@ var VER = (function () { try { return new URL(self.location).searchParams.get('v
 var CACHE = 'paruay-shell-' + VER;
 var SHELL = './';
 var SUPA_LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
+var XLSX_LIB = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; // v3.7.233 — Export Excel ออฟไลน์
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
@@ -20,6 +21,7 @@ self.addEventListener('install', function (e) {
       var cache = await caches.open(CACHE);
       try { await cache.add(SHELL); } catch (_) {}
       try { await cache.add(SUPA_LIB); } catch (_) {}
+      try { await cache.add(XLSX_LIB); } catch (_) {}
     } catch (_) {}
   })());
 });
@@ -65,6 +67,10 @@ self.addEventListener('fetch', function (e) {
   if (req.mode === 'navigate') { e.respondWith(networkFirst(req)); return; }
   // 2) Supabase JS lib → cache-first (ออฟไลน์ก็มี)
   if (url.href.indexOf('supabase') !== -1 && url.href.indexOf('.js') !== -1 && url.origin !== self.location.origin) {
+    e.respondWith(cacheFirst(req)); return;
+  }
+  // 2b) SheetJS (Export Excel) → cache-first (ออฟไลน์ export ได้หลังโหลดครั้งแรก)
+  if (url.href.indexOf('xlsx') !== -1 && url.href.indexOf('.js') !== -1 && url.origin !== self.location.origin) {
     e.respondWith(cacheFirst(req)); return;
   }
   // อื่น ๆ: ไม่แตะ (Supabase REST/realtime ต้องวิ่งเน็ตตามปกติ, ออฟไลน์แอปใช้ localStorage)
