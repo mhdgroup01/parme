@@ -12,7 +12,7 @@ var VER = (function () { try { return new URL(self.location).searchParams.get('v
 var CACHE = 'paruay-shell-' + VER;
 var SHELL = './';
 var SUPA_LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
-var XLSX_LIB = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; // v3.7.233 — Export Excel ออฟไลน์
+var XLSX_LIB = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'; // v3.7.234 — Export Excel (มี style) ออฟไลน์
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
