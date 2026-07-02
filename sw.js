@@ -36,14 +36,32 @@ self.addEventListener('activate', function (e) {
   })());
 });
 
+// network-first แต่ "มี timeout" (v3.7.246): เน็ตแกว่ง (เชื่อมได้แต่ข้อมูลไม่ไหล เช่นหลังปิด
+// airplane mode / สัญญาณอ่อน) → fetch() ค้างได้นานมากโดยไม่ throw → หน้าเว็บไม่ paint → ค้างที่
+// OS splash (ต้อง force-quit). กันด้วยการแข่ง fetch กับตัวจับเวลา: ครบเวลายังไม่ได้เน็ต + มี cache
+// → คืน cache ให้เข้าแอปก่อน (fetch ที่ค้างยังวิ่งต่อ อัปเดต cache ให้รอบหน้า). ระบบอัปเดตเวอร์ชัน
+// ยังทำงาน: SW ใหม่ (bytes เปลี่ยน) install แล้วดึง HTML สดเองใน event 'install'.
+var NAV_TIMEOUT = 5000;
 async function networkFirst(req) {
   var cache = await caches.open(CACHE);
+  var cachedP = cache.match(SHELL);
   try {
-    var res = await fetch(req);
-    if (res && (res.ok || res.type === 'opaqueredirect')) { try { await cache.put(SHELL, res.clone()); } catch (_) {} }
-    return res;
+    return await new Promise(function (resolve, reject) {
+      var done = false;
+      fetch(req).then(function (r) {
+        if (r && (r.ok || r.type === 'opaqueredirect')) { cache.put(SHELL, r.clone()).catch(function () {}); }
+        if (!done) { done = true; resolve(r); }
+      }).catch(function (e) {
+        if (done) return;
+        cachedP.then(function (c) { if (done) return; done = true; c ? resolve(c) : reject(e); });
+      });
+      setTimeout(function () {
+        if (done) return;
+        cachedP.then(function (c) { if (c && !done) { done = true; resolve(c); } }); // ไม่มี cache = รอ fetch ต่อ (ไม่มีอะไรดีกว่าแสดง)
+      }, NAV_TIMEOUT);
+    });
   } catch (err) {
-    var cached = await cache.match(SHELL);
+    var cached = await cachedP;
     if (cached) return cached;
     throw err;
   }
