@@ -48,6 +48,17 @@ Deno.serve(async (req) => {
   const key = Deno.env.get('ANTHROPIC_API_KEY');
   if (!key) return json({ ok: false, error: 'no_api_key' }, 500);
 
+  // Gate to logged-in users only. Supabase's gateway already verified the JWT signature
+  // (verify_jwt on); the public anon key is also a valid JWT, so additionally require the
+  // "authenticated" role — otherwise anyone holding the public anon key could burn the AI budget.
+  try {
+    const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    const payload = JSON.parse(atob((jwt.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload.role !== 'authenticated') return json({ ok: false, error: 'auth_required' }, 401);
+  } catch (_) {
+    return json({ ok: false, error: 'auth_required' }, 401);
+  }
+
   let body: any = {};
   try { body = await req.json(); } catch (_) { return json({ ok: false, error: 'bad_body' }, 400); }
 
