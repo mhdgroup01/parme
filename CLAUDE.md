@@ -18,11 +18,11 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 ## สถาปัตยกรรม (ข้อจำกัดที่ต้องยึดเสมอ)
 - **ไฟล์เดียว** — ทุกอย่างอยู่ใน `index.html` ห้ามแตกไฟล์ JS/CSS ออก
 - **ไม่มี build step** — โค้ดเขียน `React.createElement` ตรงๆ (มี `h` เป็น alias) ไม่มี Babel runtime ในเบราว์เซอร์
-- Deploy ผ่าน **GitHub Pages**: https://mhdgroup01.github.io/paruay/ (repo: `mhdgroup01/paruay`, branch `main`)
-- **Backend: Supabase** (region Singapore) — auth, realtime, postgres
+- **Deploy: self-host บน Hostinger VPS** — https://parme.me + www (nginx container `parme-prod`, DNS ผ่าน Cloudflare → 187.127.122.252). repo `mhdgroup01/paruay` branch `main` ยัง sync อยู่แต่ **GitHub Pages ไม่ใช่ตัวเสิร์ฟ prod แล้ว** (เหลือเป็น fallback: revert DNS กลับ 185.199.108-111.153) — ย้ายมา VPS ตั้งแต่ 2026-07-02
+- **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.40 (sprint 2026-06-15/16 — research-backed optimization)
+v3.7.249 (2026-07-04 — audit ใหญ่: ซ่อม dead writes 14 จุด + offline queue + timezone + ลบ dead code ~293 บรรทัด)
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -70,14 +70,17 @@ while True:
 ### 3. การแก้ string — assert ก่อนเขียนเสมอ
 ก่อน replace ให้นับจำนวน occurrence ให้ตรงตามคาด ป้องกันแก้ผิดจุด (ไฟล์ใหญ่ string ซ้ำได้ง่าย) ใช้ Edit tool ของ Claude Code โดยใส่ context รอบ ๆ ให้ unique หรือถ้าแก้หลายจุดพร้อมกันใช้ Python heredoc ที่ assert count ก่อน
 
-### 4. Deploy (เปลี่ยนจากเดิม)
-ใน Claude Code ไม่ต้อง `cp` ไป outputs หรือ present_files แล้ว — แก้ไฟล์ในเครื่องตรง ๆ แล้ว:
+### 4. Deploy (v3.7.249+ — prod อยู่บน VPS แล้ว)
+prod ตัวจริงคือ nginx บน VPS — **push GitHub อย่างเดียวไม่ deploy แล้ว** ต้อง rsync ด้วย:
 ```
-git add index.html
-git commit -m "v3.7.xx — <สรุปสั้น>"
-git push
+# 1) deploy จริง (VPS)
+rsync -e "ssh -i ~/.ssh/hostinger_vps_ed25519" -av ~/paruay/index.html root@187.127.122.252:/docker/parme-prod/html/index.html
+# 2) verify
+curl -s https://parme.me/ | grep -o 'app-version" content="[^"]*'
+# 3) เก็บ repo ให้ตรง prod (+GitHub Pages fallback)
+git add -A && git commit -m "v3.7.xx — <สรุปสั้น>" && git push
 ```
-GitHub Pages จะ deploy อัตโนมัติ (รอ ~1 นาที) M เทสต์บนมือถือจริง (iOS) แล้วส่ง screenshot กลับมา
+nginx ส่ง `Cache-Control: no-cache` ให้ HTML/sw.js แล้ว (ตั้งใน `/docker/parme-prod/default.conf` 2026-07-04) → ผู้ใช้ได้เวอร์ชันใหม่ตอนเปิดแอปรอบถัดไป. ถ้าแก้ schema DB → รัน SQL บน VPS (`docker exec supabase-db psql -U postgres`) + เก็บไฟล์ใน `tools/migrations/` + **อย่าลืม `NOTIFY pgrst, 'reload schema';`** ไม่งั้น PostgREST ไม่รู้จักคอลัมน์ใหม่
 
 ## โครงสร้าง Supabase (ตารางหลัก)
 ฝั่งการเงิน: `user_settings` (มี `fx_manual` jsonb สำหรับ FX override sync), `families`, `family_transactions`, `family_members`, `family_messages`, `family_ious`
@@ -114,6 +117,28 @@ loading screens (`authState==='loading'` ~L17664 + `cloudLoading` ~L18239) เ�
 
 ## bugfix สำคัญ — empty-cloud overwrite (v3.7.103)
 `loadShopData` (~L16877) เคยใช้ `if (prods) setPosProducts(...)` — แต่ `[]` เป็น **truthy** → ถ้า cloud คืน array ว่าง (sync ยังไม่เสร็จ/ล้มเหลว/seed ตอน posShopId ยัง null) จะ**เขียนทับสินค้า local เป็นว่าง** = สินค้า/บิลหายหลัง refresh (เฉพาะตอนล็อกอิน+มีร้าน; เส้นทางไม่มีร้านปลอดภัยเพราะ loadShopData ไม่รัน). แก้: `if (prods && prods.length)` กับ **products + categories + sales** (cloud ว่าง = ไม่ลบ local). ⚠️ ทดสอบ demo ไม่ได้ (ไม่มีร้าน) — verify เครื่องจริง. **เหลือ:** ถ้า cloud ไม่ว่างแต่ขาดบิลที่ sync ไม่ขึ้น (เช่นยังไม่รัน SQL credit/payment → upsert fail) ก็ยังโดนทับได้ → ทางแก้คือรัน SQL ให้ครบ.
+
+## v3.7.249 (2026-07-04) — audit ใหญ่ 4 agents + ซ่อมยกชุด
+**ซ่อมแล้ว (deploy บน VPS แล้ว):**
+- **dead writes 14 จุด** — supabase-js builder ไม่ถูก `await`/`.then` = ไม่ยิง HTTP เลย: sync `pos_ingredients` (ตายสนิททั้ง feature), reset POS wipe cloud, ตั้งค่าร้าน 7 จุด (fifo/stock/table_count/units), ลบ ghost bill `__edit__`. แก้: `.then(r=>{if(r&&r.error)...})` + enqueue สำหรับ ingredients. **บทเรียน: `supabase.from(...)` ต้องมี await/.then เสมอ**
+- **offline tx queue** — (a) แก้ไขรายการเก่าตอน offline โดนทับหาย: เพิ่ม pending-edit protection (local ชนะ cloud) ใน poll merge 3 path + loadCloudData, (b) เลิก `txPendingClear()` เหมา, (c) จำกัด re-push local-only เฉพาะ pending∪สร้างใหม่<72ชม. (กัน tx ที่ลบจากเครื่องอื่นคืนชีพ), (d) 'online' event flush คิว POS ด้วย + timer 30s (`window.__paruayFlushTimer` + event `paruay-auto-flush`)
+- **timezone** — `todayStr()` เดิม UTC → ก่อน 7 โมงเช้า รายการ/ยอดขายลงวันเมื่อวาน. แก้เป็น local (+รับ Date param) + จุด inline อีก 6 (famDate/dk/ds/todayS/dob max). RPC ฝั่ง DB ใช้ Asia/Bangkok อยู่แล้ว
+- **auth watchdog** — session มาช้ากว่า 6s watchdog → token ถูกทิ้ง → realtime ค้าง anon (SUBSCRIBED แต่เงียบ). แก้: early-return branch ยัง setAuth ให้ realtime
+- **stale-response guards** — `posShopIdRef` + guard ใน loadShopData/loadPosTotals (สลับร้านเร็ว = ข้อมูลข้ามร้าน), double-tap guard `completeRemoteSale`, recipe-type ไม่คืน product stock ตอน void/edit, `computeShares` โยนเศษปัดให้แชร์ใหญ่สุด (Σ = ยอดจริง)
+- **linkedTxId round-trip** — คอลัมน์ใหม่ `pos_sales.linked_tx_id` (SQL: `tools/migrations/2026-07-04-pos-sales-linked-tx.sql`, รันบน VPS แล้ว + NOTIFY pgrst) + ใส่ครบ 4 mappers → ลบ/แก้บิลที่ผูกรายรับ ตามไปจัดการ tx ถูกแล้ว (เดิมค่าอยู่แค่ local โดน sync ทับหาย = ยอดค้างเกิน)
+- **dead code ~293 บรรทัด** — modal แก้บิลเก่า (editSale), goal UI เก่า (bar/goalCard/short/ring/goalRing), orphan states 12 ตัว. `CATALOG_BASE` → `./catalog/` (เดิมชี้ github.io). เหลือ `rotateToken` (อาจเป็นฟีเจอร์อนาคต — ถาม M ก่อนลบ)
+- **nginx VPS** — เพิ่ม `Cache-Control: no-cache` ให้ HTML/sw.js (เดิมไม่มี header → heuristic cache → ติดเวอร์ชันเก่า), catalog 7 วัน
+
+**follow-up ที่ยังไม่ทำ (เรียงตามคุ้ม/เสี่ยง):**
+1. POS เปิดแอปตอน offline ไม่ได้ (shop resolution ต้องเน็ต — ควร fallback `paruay_pos_shop_id` cache)
+2. ลบข้ามเครื่องไม่ propagate ผ่าน cursor poll (ต้อง soft-delete `deleted_at` — DB design)
+3. สต็อก read-modify-write แพ้ race หลายเครื่องขายพร้อมกัน (ควรเป็น RPC atomic decrement)
+4. self-heal สินค้า/หมวด resurrect ของที่ลบจากเครื่องอื่น (คลาสเดียวกับ tx — จำกัดเฉพาะ pending)
+5. แก้บิลเก่า reprice ด้วยราคาปัจจุบัน (ควร seed cart ด้วยราคาในบิล)
+6. QR order status update ไม่เช็ค error (ลูกค้าค้าง "รอ" ถ้าเน็ตสะดุด)
+7. `game_sessions` subscribe ไม่มี filter = fan-out ทุก client (จุดแรกที่จะหนักถ้าผู้ใช้โต)
+8. localStorage เต็ม (รูป base64) = เซฟเงียบๆ ล้มเหลว ไม่มี toast
+9. duplicate report block ×2 (~130 บรรทัด family vs personal) — refactor เมื่อสะดวก
 
 ## งานค้าง (ณ v3.7.103)
 - Tier 1 #4+ (ถ้าจะทำต่อ): ดูจาก POS audit — เช่น พิมพ์ใบเสร็จ/แชร์, สต็อกสินค้า, กะ/รอบขาย ฯลฯ
