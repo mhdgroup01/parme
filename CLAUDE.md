@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.251 (2026-07-04 — ซ่อม 6 regression ที่ adversarial self-review เจอใน v3.7.249/250: todayStr แปลง local ไม่ครบ + tx queue race + computeShares orphan)
+v3.7.252 (2026-07-04 — completeness sweep เจอ straggler ที่ review พลาด: day-chart bucket key ยัง UTC ขณะ t2.date เป็น local แล้ว)
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -143,6 +143,9 @@ adversarial self-review ของ diff v3.7.248→250 (demo smoke ไม่ค�
 - **tx queue race (ราก):** `pushPendingTx` เดิม `txPendingWrite([])` ล้างทั้งก้อนหลัง await → id ที่ persist() append ระหว่าง upsert หลุด = tx ค้างถาวร. แก้: re-read คิวแล้วลบเฉพาะ id ที่ส่งเสร็จ (done=dead∪success) → ปิด race ที่ทำให้ 72h gate ทำ row หาย
 - **computeShares orphan:** residual (v3.7.249) โยนเศษให้คนใหญ่สุด แต่ถ้ามี member ถูกถอด (id ยังค้างใน item.memberIds จาก addIouItem ที่ seed allMemIds) จะโยนทั้งก้อน = overcharge debtor. แก้: filter id นอกวงก่อนหาร → per ถูก residual เป็นเศษจริง. **พิสูจน์เชิงตัวเลข node แล้ว 5 เคส** (orphan 90k/2 = 45k/45k ไม่ใช่ 60k)
 - **POS degraded iOS:** เพิ่ม visibilitychange fallback (iOS มักไม่ยิง 'online' → กลับมา foreground ก็ re-resolve ร้าน)
+
+## v3.7.252 (2026-07-04) — completeness sweep (critic catch)
+หลังซ่อม v3.7.251 ทำ completeness sweep timezone (grep ทุก `slice(0,10)`/`slice(0,7)`/`created_at` ที่เป็น date bucket) → เจอ straggler ที่ review 6-มิติ**พลาด**: **day-chart bucket key** (report กราฟ "มื้/วัน", FamilyScreen ~11651 + Paruay ~21551) ยังสร้าง key ด้วย `d.toISOString().slice(0,10)` = UTC ขณะที่ tx match ด้วย `t2.date` (local หลัง v3.7.249) → tx วันนี้หายจากกราฟช่วง 00:00–07:00 (UTC+7). แก้: `ensure(todayStr(d), ...)`. **week/month/year ปลอดภัยอยู่แล้ว** (key กับ matcher ใช้ transform เดียวกัน — week: `mon().toISOString()` ทั้งคู่; month/year: getFullYear/getMonth local ทั้งคู่). **บทเรียนย้ำ: หลังแปลง timezone ต้อง grep completeness ทุก bucket-key builder เทียบ basis กับตัวที่มัน match — dimension review อาจโฟกัสจุดใหญ่แล้วพลาด bucket ย่อย**
 
 **follow-up ที่เหลือ (design change — ต้องเทสต์ร้านจริง/ตัดสินใจก่อนทำ):**
 1. **soft-delete tombstones** (`deleted_at` ทุกตาราง sync) — ลบข้ามเครื่องยัง propagate ผ่าน realtime เท่านั้น (cursor poll มองไม่เห็น delete; local-only ghost ค้างบนเครื่อง stale จนกว่า realtime จะจับ). ต้องแก้ DB schema + ทุก delete path + filter ทุก query
