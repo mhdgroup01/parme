@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.250 (2026-07-04 — เก็บ follow-up จาก audit: POS offline boot, self-heal resurrect, bill-edit reprice, QR retry, quota fallback, stale guards)
+v3.7.251 (2026-07-04 — ซ่อม 6 regression ที่ adversarial self-review เจอใน v3.7.249/250: todayStr แปลง local ไม่ครบ + tx queue race + computeShares orphan)
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -136,6 +136,13 @@ loading screens (`authState==='loading'` ~L17664 + `cloudLoading` ~L18239) เ�
 - **QR order status** — helper `qrOrderUpdate(id, patch)` retry×3 backoff แทน `.then(()=>{})` ทั้ง 8 จุด (accepted/rejected/done/paid/expired/patch)
 - **localStorage เต็ม** — `saveTxStore` fallback เซฟแบบตัดรูปแนบ (รูปอยู่บน cloud row แล้ว) แทนเงียบทั้งก้อน
 - **stale guards** — `loadReqRef` (loadDetail: เปิดครอบครัวซ้อน/ปิดแล้วไม่เด้งคืน), `openRef` guard ใน loadPOS, `currentUserIdRef` guard ใน loadCloudData (สลับบัญชีเร็ว)
+
+## v3.7.251 (2026-07-04) — ซ่อม regression จาก self-review (workflow 6-มิติ + adversarial verify)
+adversarial self-review ของ diff v3.7.248→250 (demo smoke ไม่ครอบ sync/offline เพราะ fake supabase) เจอ 6 regression **ทั้งหมด medium/low** (qrOrderUpdate scope + dead-code deletion ผ่านสะอาด; editPriceOv โดน refute = ถูกอยู่แล้ว). ซ่อมที่ราก:
+- **todayStr แปลง local ไม่ครบ (4 จุด):** v3.7.249 แปลง write-side เป็น local แต่ read-side ยัง UTC → ปนกัน. แก้: POS `date` mappers 3 จุด (17969/18049/18279) → `todayStr(new Date(r.created_at))`; family month-key `mk` (11420) → `todayStr().slice(0,7)`. **บทเรียน: แปลง timezone ต้องแก้ทั้ง write + read + ทุก bucket key พร้อมกัน** (sale.date ของ pos_sales ไม่ persist — derive จาก created_at ทุกครั้งที่โหลด)
+- **tx queue race (ราก):** `pushPendingTx` เดิม `txPendingWrite([])` ล้างทั้งก้อนหลัง await → id ที่ persist() append ระหว่าง upsert หลุด = tx ค้างถาวร. แก้: re-read คิวแล้วลบเฉพาะ id ที่ส่งเสร็จ (done=dead∪success) → ปิด race ที่ทำให้ 72h gate ทำ row หาย
+- **computeShares orphan:** residual (v3.7.249) โยนเศษให้คนใหญ่สุด แต่ถ้ามี member ถูกถอด (id ยังค้างใน item.memberIds จาก addIouItem ที่ seed allMemIds) จะโยนทั้งก้อน = overcharge debtor. แก้: filter id นอกวงก่อนหาร → per ถูก residual เป็นเศษจริง. **พิสูจน์เชิงตัวเลข node แล้ว 5 เคส** (orphan 90k/2 = 45k/45k ไม่ใช่ 60k)
+- **POS degraded iOS:** เพิ่ม visibilitychange fallback (iOS มักไม่ยิง 'online' → กลับมา foreground ก็ re-resolve ร้าน)
 
 **follow-up ที่เหลือ (design change — ต้องเทสต์ร้านจริง/ตัดสินใจก่อนทำ):**
 1. **soft-delete tombstones** (`deleted_at` ทุกตาราง sync) — ลบข้ามเครื่องยัง propagate ผ่าน realtime เท่านั้น (cursor poll มองไม่เห็น delete; local-only ghost ค้างบนเครื่อง stale จนกว่า realtime จะจับ). ต้องแก้ DB schema + ทุก delete path + filter ทุก query
