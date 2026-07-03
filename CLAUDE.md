@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.249 (2026-07-04 — audit ใหญ่: ซ่อม dead writes 14 จุด + offline queue + timezone + ลบ dead code ~293 บรรทัด)
+v3.7.250 (2026-07-04 — เก็บ follow-up จาก audit: POS offline boot, self-heal resurrect, bill-edit reprice, QR retry, quota fallback, stale guards)
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -129,16 +129,20 @@ loading screens (`authState==='loading'` ~L17664 + `cloudLoading` ~L18239) เ�
 - **dead code ~293 บรรทัด** — modal แก้บิลเก่า (editSale), goal UI เก่า (bar/goalCard/short/ring/goalRing), orphan states 12 ตัว. `CATALOG_BASE` → `./catalog/` (เดิมชี้ github.io). เหลือ `rotateToken` (อาจเป็นฟีเจอร์อนาคต — ถาม M ก่อนลบ)
 - **nginx VPS** — เพิ่ม `Cache-Control: no-cache` ให้ HTML/sw.js (เดิมไม่มี header → heuristic cache → ติดเวอร์ชันเก่า), catalog 7 วัน
 
-**follow-up ที่ยังไม่ทำ (เรียงตามคุ้ม/เสี่ยง):**
-1. POS เปิดแอปตอน offline ไม่ได้ (shop resolution ต้องเน็ต — ควร fallback `paruay_pos_shop_id` cache)
-2. ลบข้ามเครื่องไม่ propagate ผ่าน cursor poll (ต้อง soft-delete `deleted_at` — DB design)
-3. สต็อก read-modify-write แพ้ race หลายเครื่องขายพร้อมกัน (ควรเป็น RPC atomic decrement)
-4. self-heal สินค้า/หมวด resurrect ของที่ลบจากเครื่องอื่น (คลาสเดียวกับ tx — จำกัดเฉพาะ pending)
-5. แก้บิลเก่า reprice ด้วยราคาปัจจุบัน (ควร seed cart ด้วยราคาในบิล)
-6. QR order status update ไม่เช็ค error (ลูกค้าค้าง "รอ" ถ้าเน็ตสะดุด)
-7. `game_sessions` subscribe ไม่มี filter = fan-out ทุก client (จุดแรกที่จะหนักถ้าผู้ใช้โต)
-8. localStorage เต็ม (รูป base64) = เซฟเงียบๆ ล้มเหลว ไม่มี toast
-9. duplicate report block ×2 (~130 บรรทัด family vs personal) — refactor เมื่อสะดวก
+## v3.7.250 (2026-07-04) — เก็บ follow-up รอบสอง
+- **POS เปิดตอน offline ได้แล้ว** — resolve ร้านล้ม (เน็ตล่ม) → กู้จาก `paruay_pos_shops_cache` (เก็บ list+myId+user ทุกครั้งที่ resolve สำเร็จ ได้สิทธิ์ owner ถูกต้อง) + state `posShopDegraded` + auto-retry ตอน 'online' event
+- **self-heal สินค้า/หมวด** — push คืน cloud เฉพาะ id ที่ค้างคิว `pendingUpsertIds()` (เดิม push ทุกตัวที่ cloud ไม่มี = ของที่ลบจากเครื่องอื่นคืนชีพ) — local merge ยังคงเดิม
+- **แก้บิลเก่าไม่ reprice แล้ว** — `editPriceOv` ใน cartItems: สินค้าที่อยู่ในบิลเดิมใช้ราคา/ต้นทุน "ตามบิล" (จอ+ยอด+เซฟตรงกันหมด) ของเพิ่มใหม่ใช้ราคาปัจจุบัน
+- **QR order status** — helper `qrOrderUpdate(id, patch)` retry×3 backoff แทน `.then(()=>{})` ทั้ง 8 จุด (accepted/rejected/done/paid/expired/patch)
+- **localStorage เต็ม** — `saveTxStore` fallback เซฟแบบตัดรูปแนบ (รูปอยู่บน cloud row แล้ว) แทนเงียบทั้งก้อน
+- **stale guards** — `loadReqRef` (loadDetail: เปิดครอบครัวซ้อน/ปิดแล้วไม่เด้งคืน), `openRef` guard ใน loadPOS, `currentUserIdRef` guard ใน loadCloudData (สลับบัญชีเร็ว)
+
+**follow-up ที่เหลือ (design change — ต้องเทสต์ร้านจริง/ตัดสินใจก่อนทำ):**
+1. **soft-delete tombstones** (`deleted_at` ทุกตาราง sync) — ลบข้ามเครื่องยัง propagate ผ่าน realtime เท่านั้น (cursor poll มองไม่เห็น delete; local-only ghost ค้างบนเครื่อง stale จนกว่า realtime จะจับ). ต้องแก้ DB schema + ทุก delete path + filter ทุก query
+2. **atomic stock decrement RPC** — สองเครื่องขายพร้อมกันยัง lose update (upsert absolute). ควรมี `decrement_stock(product_id, qty)` + เปลี่ยน checkout path; กระทบคิว offline (เก็บ delta แทน absolute)
+3. **`game_sessions` realtime ไม่มี filter** — fan-out ทุก event × ทุก client (filter ด้วย array ไม่ได้ — ต้องเปลี่ยน schema เป็น notify-row ต่อ user หรือยอมรับจนกว่าผู้ใช้เกมจะเยอะ)
+4. duplicate report block ×2 (~130 บรรทัด family vs personal) — refactor เมื่อสะดวก
+5. `rotateToken` (QR token rotation) เขียนไว้ไม่มี UI เรียก — ถาม M: ฟีเจอร์อนาคตหรือลบ
 
 ## งานค้าง (ณ v3.7.103)
 - Tier 1 #4+ (ถ้าจะทำต่อ): ดูจาก POS audit — เช่น พิมพ์ใบเสร็จ/แชร์, สต็อกสินค้า, กะ/รอบขาย ฯลฯ
