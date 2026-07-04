@@ -26,3 +26,27 @@ ALTER POLICY ft_upd ON public.family_transactions WITH CHECK (is_family_full(fam
 --    (bucket อื่นในฟังก์ชันเดียวกันใช้ Asia/Bangkok อยู่แล้ว — ตัวนี้ตกหล่น)
 
 -- NOTE: หลัง CREATE OR REPLACE function ต้อง NOTIFY pgrst, 'reload schema';
+
+-- ============================================================================
+-- v3.7.254 — pos_products/pos_categories anon cost/recipe leak (medium)
+-- qr_anon_read_* policy USING(true) roles {anon,authenticated} → ใครก็อ่าน cost/cost_layers/recipe ทุกร้าน
+-- fix: ทำ RPC qr_menu (คืนเฉพาะคอลัมน์ปลอดภัย) + client QR menu ใช้ RPC + DROP broad policy
+-- เจ้าของอ่านร้านตัวเองผ่าน pos_products_all/pos_categories_all (authenticated, shop-scoped) — ไม่กระทบ
+-- VERIFY: anon อ่าน cost ตรง=[]; qr_menu RPC ได้เมนูไม่มี cost; owner read own shop ปกติ
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.qr_menu(p_shop uuid)
+RETURNS json LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+  SELECT json_build_object(
+    'products', COALESCE((SELECT json_agg(p) FROM (
+        SELECT id, shop, name, price, stock, emoji, photo, category_id, station, sort, unit, stock_type
+        FROM pos_products WHERE shop = p_shop) p), '[]'::json),
+    'categories', COALESCE((SELECT json_agg(c) FROM (
+        SELECT id, shop, name, emoji, station, default_unit
+        FROM pos_categories WHERE shop = p_shop) c), '[]'::json)
+  );
+$function$;
+GRANT EXECUTE ON FUNCTION public.qr_menu(uuid) TO anon, authenticated;
+DROP POLICY qr_anon_read_products ON public.pos_products;
+DROP POLICY qr_anon_read_categories ON public.pos_categories;
+-- rollback: ดู /docker/backups/rollback-security-20260704.sql

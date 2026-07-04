@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.253 (2026-07-04 — security audit: อุดช่องโหว่ family_members self-join CRITICAL + ft_upd + money math; DB fixes applied บน VPS)
+v3.7.254 (2026-07-04 — ปิด pos_products anon cost/recipe leak: QR menu ผ่าน RPC qr_menu + DROP broad policy)
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -165,7 +165,7 @@ audit มิติที่ยังไม่เคยตรวจ: RLS / SECURI
 **⚠️ ยังไม่แก้ — ต้องเจ้าของตัดสินใจ/งานใหญ่ (เรียงตามคุ้ม):**
 1. 🟠 **get_email_by_username (high, PII):** RPC anon คืนอีเมลจาก username → harvest อีเมลทุกคน. แก้ต้องทำ **Edge Function** login-by-username (รับ user+pass+captcha ทำ signin ฝั่ง server ไม่คืนอีเมล) — รื้อ login flow ต้องเทสต์ (เสี่ยงพัง login ถ้ารีบ). username_taken/search_user_by_username ก็ leak การมีตัวตน
 2. 🟠 **sync_loan_payment (high):** ปิดหนี้เมื่อจ่ายถึง "เงินต้นเปล่า" ไม่นับดอก → ดอกค้างหายจาก dashboard. แก้ต้อง mirror สูตรดอก client ใน plpgsql (เสี่ยง) หรือให้ client คุม paid transition
-3. 🟡 **pos_products/pos_categories anon USING(true) (medium, leak):** anon อ่าน cost/cost_layers/recipe ของ**ทุกร้าน** (คู่แข่งดึงต้นทุน/สูตรได้). แก้ต้องประสาน: (a) เปลี่ยน QR client `select('*')`→คอลัมน์ปลอดภัย (name/price/emoji/photo/category_id) deploy ก่อน, (b) REVOKE คอลัมน์ sensitive จาก anon หรือทำ RPC/view. **อย่า REVOKE ก่อน deploy client ไม่งั้นเมนู QR พัง**
+3. ✅ **~~pos_products anon cost/recipe leak~~ แก้แล้ว v3.7.254** — RPC `qr_menu(p_shop)` คืนเฉพาะคอลัมน์ปลอดภัย + client QR menu (L31682) ใช้ RPC + DROP qr_anon_read_products/categories. เจ้าของอ่านร้านตัวเองผ่าน pos_products_all/pos_categories_all (scoped) ไม่กระทบ. verify: anon อ่าน cost ตรง=[], RPC ได้เมนูไม่มี cost, ปิด authenticated cross-shop ด้วย. **⚠️ QR customer menu ควรให้เจ้าของสแกนเทสต์จริง 1 ครั้ง** (demo ไม่ครอบ path ลูกค้า)
 4. 🟡 **FIFO COGS (medium):** ต้นทุนขายใช้ layersAvg ไม่ใช่ layer ที่บริโภคจริง → กำไรเพี้ยนเมื่อ layer ต่างราคา (เฉพาะร้าน cost_method=fifo)
 5. 🟡 **FIFO void/edit (medium):** void บิลคืน stock แต่ไม่คืน cost layer → layersAvg เพี้ยน + มูลค่าสต็อกเกิน (เฉพาะ fifo)
 6. 🟢 **credit payment split (low):** settle บิลเชื่อไม่บันทึกวิธีจ่าย → chip เงินสด+โอน ไม่ตรง revenue (CSV ยัง reconcile)
