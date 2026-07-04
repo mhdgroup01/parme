@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.252 (2026-07-04 — completeness sweep เจอ straggler ที่ review พลาด: day-chart bucket key ยัง UTC ขณะ t2.date เป็น local แล้ว)
+v3.7.253 (2026-07-04 — security audit: อุดช่องโหว่ family_members self-join CRITICAL + ft_upd + money math; DB fixes applied บน VPS)
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -146,6 +146,29 @@ adversarial self-review ของ diff v3.7.248→250 (demo smoke ไม่ค�
 
 ## v3.7.252 (2026-07-04) — completeness sweep (critic catch)
 หลังซ่อม v3.7.251 ทำ completeness sweep timezone (grep ทุก `slice(0,10)`/`slice(0,7)`/`created_at` ที่เป็น date bucket) → เจอ straggler ที่ review 6-มิติ**พลาด**: **day-chart bucket key** (report กราฟ "มื้/วัน", FamilyScreen ~11651 + Paruay ~21551) ยังสร้าง key ด้วย `d.toISOString().slice(0,10)` = UTC ขณะที่ tx match ด้วย `t2.date` (local หลัง v3.7.249) → tx วันนี้หายจากกราฟช่วง 00:00–07:00 (UTC+7). แก้: `ensure(todayStr(d), ...)`. **week/month/year ปลอดภัยอยู่แล้ว** (key กับ matcher ใช้ transform เดียวกัน — week: `mon().toISOString()` ทั้งคู่; month/year: getFullYear/getMonth local ทั้งคู่). **บทเรียนย้ำ: หลังแปลง timezone ต้อง grep completeness ทุก bucket-key builder เทียบ basis กับตัวที่มัน match — dimension review อาจโฟกัสจุดใหญ่แล้วพลาด bucket ย่อย**
+
+## v3.7.253 (2026-07-04) — Security + money-math audit (workflow 5-มิติ + skeptic verify + live-DB exploit test)
+audit มิติที่ยังไม่เคยตรวจ: RLS / SECURITY DEFINER / XSS / family+FX+loan math / POS money. **RLS เปิดครบทุกตาราง, mapper-drift + XSS สะอาด.** เจอ 15 issue (2 critical, 6 high) — **reproduce exploit บน prod จริงก่อนแก้** (test harness node+supabase-js mint JWT):
+
+**✅ อุดแล้ว (DB — apply บน VPS, verify exploit blocked + legit flow works):**
+- 🔴 **CRITICAL family_members self-join** — fm_ins policy เช็คแค่ user_id ไม่เช็ค family_id → ใครก็ INSERT เข้าครอบครัวไหนก็ได้ (ไม่ต้องมี code) → เห็น/แก้เงินครอบครัวคนอื่นทั้งหมด. แก้: DROP fm_ins (join ผ่าน create_family/join_family RPC SECURITY DEFINER เท่านั้น). **บทเรียน: exploit ตัวแรก 403 เพราะ `return=representation` (red herring) — insert ปกติ 201 = จริง! ต้องเทสต์หลายรูปแบบ**
+- 🟠 **ft_upd** ไม่มี WITH_CHECK → ย้าย tx เข้าครอบครัวคนอื่น. แก้: + WITH CHECK is_family_full
+- 🟡 set_family_currency/goals(4,5-arg) is_family_member→is_family_full (POS-only seller เปลี่ยนสกุล/เป้าไม่ได้แล้ว)
+- 🟡 pos_sales_totals today_rev UTC→Asia/Bangkok (ตรง client local)
+- SQL record: `tools/migrations/2026-07-04-security-rls-secdef.sql`; body ใหม่บน VPS `/docker/sec-func-fixes.sql`; rollback `/docker/backups/rollback-security-20260704.sql`
+
+**✅ อุดแล้ว (client v3.7.253):**
+- 🟠 family `inToday` (daily goal) ไม่ filter สกุลเงิน → +isPrimaryTx
+- 🟠 posEditSale ลบส่วนลด/svc ตอนแก้บิล → ยอด+รายได้พองเท่าส่วนลด. แก้: คง old.discount/svc/svcPct, total = subTotal−disc+svc (verify: บิล 100k ลด 20k แก้ไม่เปลี่ยน = คง 80k)
+- loan-IOU header (low) สรุปยอดไม่รวมดอก ต่างจากแถว → iouOwed() interest-aware
+
+**⚠️ ยังไม่แก้ — ต้องเจ้าของตัดสินใจ/งานใหญ่ (เรียงตามคุ้ม):**
+1. 🟠 **get_email_by_username (high, PII):** RPC anon คืนอีเมลจาก username → harvest อีเมลทุกคน. แก้ต้องทำ **Edge Function** login-by-username (รับ user+pass+captcha ทำ signin ฝั่ง server ไม่คืนอีเมล) — รื้อ login flow ต้องเทสต์ (เสี่ยงพัง login ถ้ารีบ). username_taken/search_user_by_username ก็ leak การมีตัวตน
+2. 🟠 **sync_loan_payment (high):** ปิดหนี้เมื่อจ่ายถึง "เงินต้นเปล่า" ไม่นับดอก → ดอกค้างหายจาก dashboard. แก้ต้อง mirror สูตรดอก client ใน plpgsql (เสี่ยง) หรือให้ client คุม paid transition
+3. 🟡 **pos_products/pos_categories anon USING(true) (medium, leak):** anon อ่าน cost/cost_layers/recipe ของ**ทุกร้าน** (คู่แข่งดึงต้นทุน/สูตรได้). แก้ต้องประสาน: (a) เปลี่ยน QR client `select('*')`→คอลัมน์ปลอดภัย (name/price/emoji/photo/category_id) deploy ก่อน, (b) REVOKE คอลัมน์ sensitive จาก anon หรือทำ RPC/view. **อย่า REVOKE ก่อน deploy client ไม่งั้นเมนู QR พัง**
+4. 🟡 **FIFO COGS (medium):** ต้นทุนขายใช้ layersAvg ไม่ใช่ layer ที่บริโภคจริง → กำไรเพี้ยนเมื่อ layer ต่างราคา (เฉพาะร้าน cost_method=fifo)
+5. 🟡 **FIFO void/edit (medium):** void บิลคืน stock แต่ไม่คืน cost layer → layersAvg เพี้ยน + มูลค่าสต็อกเกิน (เฉพาะ fifo)
+6. 🟢 **credit payment split (low):** settle บิลเชื่อไม่บันทึกวิธีจ่าย → chip เงินสด+โอน ไม่ตรง revenue (CSV ยัง reconcile)
 
 **follow-up ที่เหลือ (design change — ต้องเทสต์ร้านจริง/ตัดสินใจก่อนทำ):**
 1. **soft-delete tombstones** (`deleted_at` ทุกตาราง sync) — ลบข้ามเครื่องยัง propagate ผ่าน realtime เท่านั้น (cursor poll มองไม่เห็น delete; local-only ghost ค้างบนเครื่อง stale จนกว่า realtime จะจับ). ต้องแก้ DB schema + ทุก delete path + filter ทุก query
