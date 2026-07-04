@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.257 (2026-07-04 — FIFO COGS + void-restore + sync_loan_payment นับดอกเบี้ย [0 ร้าน fifo/0 loan active = latent, unit+e2e tested])
+v3.7.258 (2026-07-04 — แก้ login error message: อ่าน error จาก fErr.context (supabase-js invoke โยนเมื่อ non-2xx) — เดิม branch เป็น dead code โชว์ generic)
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
