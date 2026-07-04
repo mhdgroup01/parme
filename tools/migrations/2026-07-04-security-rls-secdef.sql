@@ -59,3 +59,13 @@ DROP POLICY qr_anon_read_categories ON public.pos_categories;
 REVOKE EXECUTE ON FUNCTION public.get_email_by_username(text) FROM anon, authenticated, public;
 GRANT EXECUTE ON FUNCTION public.get_email_by_username(text) TO service_role;
 -- rollback: GRANT EXECUTE ON FUNCTION public.get_email_by_username(text) TO anon, authenticated;
+
+-- ============================================================================
+-- v3.7.257 — sync_loan_payment interest-aware paid-flip (overload 5-arg)
+-- เดิม flip paid เมื่อ total >= abs(principal) (ไม่นับดอก) → ดอกค้างหายจาก dashboard
+-- ใหม่: 5-arg overload รับ p_paid (client ส่ง computeLoanState.remaining<=0 = นับดอก)
+--       เก็บ 4-arg เดิมไว้ (client เก่าไม่พัง; p_paid null → legacy bare-principal)
+-- VERIFY (2 loan rows shared group, live DB): p_paid=false + total=principal → mirror ไม่ flip; p_paid=true → flip paid
+-- (body เต็มดู /docker ตอน apply; rollback: DROP FUNCTION sync_loan_payment(uuid,bigint,date,text,boolean); — 4-arg เดิมยังอยู่)
+-- ============================================================================
+-- ดู body ใน git history / commit v3.7.257

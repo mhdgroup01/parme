@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.256 (2026-07-04 — ปิด get_email PII leak สมบูรณ์: ถอด fallback + REVOKE get_email FROM anon [เจ้าของยืนยัน username login ผ่านแล้ว])
+v3.7.257 (2026-07-04 — FIFO COGS + void-restore + sync_loan_payment นับดอกเบี้ย [0 ร้าน fifo/0 loan active = latent, unit+e2e tested])
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -168,10 +168,10 @@ audit มิติที่ยังไม่เคยตรวจ: RLS / SECURI
    - client username login ใช้ edge fn (setSession), ไม่เรียก get_email แล้ว (v3.7.256 ถอด fallback)
    - **REVOKE EXECUTE get_email_by_username FROM anon,authenticated,public** (เหลือ postgres+service_role). **verify prod: anon เรียก = 403 permission denied; edge fn (service role) ยัง resolve+ถึง GoTrue = username login ทำงาน.** เจ้าของยืนยัน browser login ผ่าน
    - **หมายเหตุ:** captcha ทำให้ Claude เทสต์ full login เองไม่ได้ (mint JWT bypass ได้แค่ RLS ไม่ใช่ signin) → ใช้ 2-phase + fallback ปลอดภัย. **เหลือ:** username_taken/search_user_by_username ยัง leak การมีตัวตน (username → มี/ไม่มี) — พิจารณาแยก (severity ต่ำกว่า ไม่ leak อีเมลแล้ว)
-2. 🟠 **sync_loan_payment (high):** ปิดหนี้เมื่อจ่ายถึง "เงินต้นเปล่า" ไม่นับดอก → ดอกค้างหายจาก dashboard. แก้ต้อง mirror สูตรดอก client ใน plpgsql (เสี่ยง) หรือให้ client คุม paid transition
+2. ✅ **~~sync_loan_payment (high)~~ แก้แล้ว v3.7.257:** overload 5-arg รับ `p_paid` (client ส่ง `computeLoanState.remaining<=0` = นับดอก) แทนเทียบเงินต้นเปล่า; เก็บ 4-arg เดิม (client เก่าไม่พัง). client 2 call sites ส่ง p_paid. **e2e-test live DB ผ่าน** (p_paid=false+total=principal→mirror ไม่ flip; p_paid=true→flip)
 3. ✅ **~~pos_products anon cost/recipe leak~~ แก้แล้ว v3.7.254** — RPC `qr_menu(p_shop)` คืนเฉพาะคอลัมน์ปลอดภัย + client QR menu (L31682) ใช้ RPC + DROP qr_anon_read_products/categories. เจ้าของอ่านร้านตัวเองผ่าน pos_products_all/pos_categories_all (scoped) ไม่กระทบ. verify: anon อ่าน cost ตรง=[], RPC ได้เมนูไม่มี cost, ปิด authenticated cross-shop ด้วย. **⚠️ QR customer menu ควรให้เจ้าของสแกนเทสต์จริง 1 ครั้ง** (demo ไม่ครอบ path ลูกค้า)
-4. 🟡 **FIFO COGS (medium):** ต้นทุนขายใช้ layersAvg ไม่ใช่ layer ที่บริโภคจริง → กำไรเพี้ยนเมื่อ layer ต่างราคา (เฉพาะร้าน cost_method=fifo)
-5. 🟡 **FIFO void/edit (medium):** void บิลคืน stock แต่ไม่คืน cost layer → layersAvg เพี้ยน + มูลค่าสต็อกเกิน (เฉพาะ fifo)
+4. ✅ **~~FIFO COGS (medium)~~ แก้แล้ว v3.7.257:** costTotal fifo mode = `fifoConsume().cogs` (unit-test node ผ่าน). average mode ไม่แตะ. 0 ร้าน fifo = latent
+5. ✅ **~~FIFO void-restore~~ แก้แล้ว v3.7.257:** เก็บ used layers/item → posDeleteSale prepend คืน. **⚠️ posEditSale ยังไม่คืน layer** (edit qty fifo = residual แคบ)
 6. 🟢 **credit payment split (low):** settle บิลเชื่อไม่บันทึกวิธีจ่าย → chip เงินสด+โอน ไม่ตรง revenue (CSV ยัง reconcile)
 
 **follow-up ที่เหลือ (design change — ต้องเทสต์ร้านจริง/ตัดสินใจก่อนทำ):**
