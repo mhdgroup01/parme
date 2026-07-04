@@ -50,3 +50,12 @@ GRANT EXECUTE ON FUNCTION public.qr_menu(uuid) TO anon, authenticated;
 DROP POLICY qr_anon_read_products ON public.pos_products;
 DROP POLICY qr_anon_read_categories ON public.pos_categories;
 -- rollback: ดู /docker/backups/rollback-security-20260704.sql
+
+-- ============================================================================
+-- v3.7.256 — ปิด get_email_by_username PII leak สมบูรณ์ (phase 2)
+-- Edge Function login-username (service role) เป็น path เดียว → REVOKE จาก anon/authenticated
+-- VERIFY: anon เรียก = 403 permission denied; edge fn ยัง resolve (service_role) = login ทำงาน
+-- ============================================================================
+REVOKE EXECUTE ON FUNCTION public.get_email_by_username(text) FROM anon, authenticated, public;
+GRANT EXECUTE ON FUNCTION public.get_email_by_username(text) TO service_role;
+-- rollback: GRANT EXECUTE ON FUNCTION public.get_email_by_username(text) TO anon, authenticated;
