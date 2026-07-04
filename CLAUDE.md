@@ -22,7 +22,7 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
-v3.7.254 (2026-07-04 — ปิด pos_products anon cost/recipe leak: QR menu ผ่าน RPC qr_menu + DROP broad policy)
+v3.7.255 (2026-07-04 — login-username Edge Function: resolve อีเมลฝั่ง server แทน get_email anon [PHASE 1: มี fallback, รอเจ้าของเทสต์ browser ก่อน revoke get_email])
 
 ## Workflow การแก้โค้ด (สำคัญมาก)
 
@@ -163,7 +163,9 @@ audit มิติที่ยังไม่เคยตรวจ: RLS / SECURI
 - loan-IOU header (low) สรุปยอดไม่รวมดอก ต่างจากแถว → iouOwed() interest-aware
 
 **⚠️ ยังไม่แก้ — ต้องเจ้าของตัดสินใจ/งานใหญ่ (เรียงตามคุ้ม):**
-1. 🟠 **get_email_by_username (high, PII):** RPC anon คืนอีเมลจาก username → harvest อีเมลทุกคน. แก้ต้องทำ **Edge Function** login-by-username (รับ user+pass+captcha ทำ signin ฝั่ง server ไม่คืนอีเมล) — รื้อ login flow ต้องเทสต์ (เสี่ยงพัง login ถ้ารีบ). username_taken/search_user_by_username ก็ leak การมีตัวตน
+1. 🟠 **get_email_by_username (high, PII) — PHASE 1 เสร็จ v3.7.255, รอ PHASE 2:**
+   - ✅ **Edge Function `login-username`** deploy บน VPS (`supabase/functions/login-username/`): รับ {username,password,captchaToken} → resolve อีเมลฝั่ง server (service role) → POST GoTrue `/token?grant_type=password` ส่ง captcha ต่อ → คืน session (ไม่คืนอีเมล). **verify: chain ผ่าน** (fake captcha → GoTrue `captcha_failed invalid-input-response` = resolve+เรียก GoTrue สำเร็จ + ไม่ leak email; token จริงจะผ่านเพราะ path เดียวกับ login เดิม). client v3.7.255 ใช้ edge fn + **fallback ทางเดิมถ้า invoke ล้ม** (login ไม่มีวันพัง)
+   - ⏳ **PHASE 2 (รอเจ้าของเทสต์ browser login ด้วย username 1 ครั้งว่าผ่าน):** แล้ว (a) ถอด fallback ใน client (บล็อก username login ~L15728), (b) `REVOKE EXECUTE ON FUNCTION get_email_by_username(text) FROM anon;` → **ปิด leak สมบูรณ์**. (ยังมี username_taken/search_user_by_username leak การมีตัวตน — พิจารณาแยก)
 2. 🟠 **sync_loan_payment (high):** ปิดหนี้เมื่อจ่ายถึง "เงินต้นเปล่า" ไม่นับดอก → ดอกค้างหายจาก dashboard. แก้ต้อง mirror สูตรดอก client ใน plpgsql (เสี่ยง) หรือให้ client คุม paid transition
 3. ✅ **~~pos_products anon cost/recipe leak~~ แก้แล้ว v3.7.254** — RPC `qr_menu(p_shop)` คืนเฉพาะคอลัมน์ปลอดภัย + client QR menu (L31682) ใช้ RPC + DROP qr_anon_read_products/categories. เจ้าของอ่านร้านตัวเองผ่าน pos_products_all/pos_categories_all (scoped) ไม่กระทบ. verify: anon อ่าน cost ตรง=[], RPC ได้เมนูไม่มี cost, ปิด authenticated cross-shop ด้วย. **⚠️ QR customer menu ควรให้เจ้าของสแกนเทสต์จริง 1 ครั้ง** (demo ไม่ครอบ path ลูกค้า)
 4. 🟡 **FIFO COGS (medium):** ต้นทุนขายใช้ layersAvg ไม่ใช่ layer ที่บริโภคจริง → กำไรเพี้ยนเมื่อ layer ต่างราคา (เฉพาะร้าน cost_method=fifo)
