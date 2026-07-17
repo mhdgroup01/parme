@@ -3,3 +3,4 @@
 # bug-hunter reports (local, regenerated on demand)
 docs/bug-reports/
 *.bak*.html
+index.html.bak-*
