@@ -193,3 +193,29 @@ tiebreak = อาร์เรย์เลขเทียบตามลำดั
 | A♦K♥9♣7♠5♥3♦2♣ | 0, tb [14,13,9,7,5] | high card |
 | เทียบ: A♠A♥KQJx vs A♦A♣KQ10x | pkCmp > 0 | kicker ตัดสิน |
 | side pot: A all-in 1k, B all-in 5k, C 10k → pot หลัก 3k (ABC), side1 8k (BC), side2 5k คืน C | — | ทดสอบใน logic แยก pot |
+
+---
+
+## §10 โหมดแนวนอน (Landscape) — v2 (ออกแบบ+พิสูจน์กลไกโดย Fable 5, 2026-07-19)
+
+**เหตุผล (load-bearing):** manifest ล็อก `"orientation":"portrait"` → PWA ที่ติดตั้งหมุนจอเองไม่ได้ ต้องหมุนคอนเทนต์ด้วย CSS. **ห้ามแก้ manifest** (จะทำทั้งแอปหมุน ไม่ใช่ที่ขอ). ใช้แนวนอนเฉพาะ **จอเล่นโป๊กเกอร์** (`phase==='play' && g.game==='poker'`) เท่านั้น — setup/champion คงแนวตั้งเดิม.
+
+**A. Rotate stage — recipe พิสูจน์แล้วในเบราว์เซอร์จริง (มือถือ 375×812: เต็มจอพอดี rect=(0,0,375,812) + คลิกทะลุ transform ติด):**
+- ถ้า `window.innerHeight >= window.innerWidth` (viewport แนวตั้ง — เคส PWA ล็อก): ครอบ pkRoot ด้วย stage
+  `position:fixed; top:0; left:0; width:100vh; height:100vw; transform-origin:top left; transform:translateX(100vw) rotate(90deg); overflow:hidden`
+  (translate เป็น 100**vw** ไม่ใช่ vh — ผมพลาดตรงนี้ตอน probe แล้วแก้; อย่าใช้ translateY)
+- ถ้า `innerWidth > innerHeight` (viewport แนวนอนจริง เช่นแท็บเบราว์เซอร์ตะแคง/เดสก์ท็อป): **ไม่ต้อง rotate** — render layout แนวนอนตรงๆ `position:fixed; inset:0`.
+- ต้อง re-render เมื่อหมุน/resize: เพิ่ม state (เช่น `pkVpW`) + listener `window.resize` + `orientationchange` ที่ setState แล้ว cleanup ตอน unmount (มี pattern useEffect+cleanup ในไฟล์อยู่แล้ว).
+- **ข้อห้าม:** ห้ามมี `position:fixed` ซ้อนใน stage (transform สร้าง containing block ใหม่ → fixed จะยึด stage ไม่ใช่ viewport). ตอนนี้ pkCfgSheet เป็น `absolute` แล้ว = OK; pkRaise popover/hint ต้องเป็น absolute เทียบ stage. ปุ่มออก/ตั้งค่าอยู่ใน HUD ภายใน stage.
+- ทิศหมุน: rotate(90deg) CW ทำให้ผู้ใช้หมุนมือถือทวนเข็มเพื่ออ่านตรง — เลือกทิศให้ "หมุนมือถือตามเข็ม (ขอบขวาลงล่าง) = ตรง" ตามสะดวก แล้วใส่ hint ไอคอนหมุนเล็กๆ มุมจอชี้ทิศให้ตรงกัน (ตอนแนวตั้ง-rotated เท่านั้น).
+
+**B. Layout ภายในแนวนอน (เต็ม stage W×H, W=ด้านยาว ~812, H=ด้านสั้น ~375) — ใช้พื้นที่เต็ม โต๊ะใหญ่:**
+- โต๊ะ full-bleed: ใช้ visuals ของ pkTableView เดิม (felt/rail/sheen/vignette ต่อธีม) แต่คอนเทนเนอร์ = เต็ม stage (เลิก `height:min(64vh,560px)`), วงรีกว้าง ~92%W × ~80%H กลางจอ.
+- HUD: absolute strip บนสุด (ซ้าย: Hand #N · Blinds / ขวา: ⚙ ออก) ทับโต๊ะ ไม่กินพื้นที่แนวตั้ง.
+- ผู้เล่น (seat 0): hole cards + แถบ action ล่างกลาง overlay — ปุ่ม Fold/Call/Raise เป็นแถวนอนล่าง, ไพ่มือเหนือปุ่ม, ป้ายชื่อมือเหนือไพ่. raise = popover compact (absolute).
+- ที่นั่งบอท: จัดรอบวงรี**กว้าง** — ปรับ pkSeatPos ให้รัศมีเป็นวงรี (กว้างแนวนอนกว่าแนวตั้ง เช่น left=50+~45·cos, top=50+~33·sin) seat0 ตรึงล่างกลาง. ต้องไม่ล้น/ทับกันที่ 6 ที่นั่ง.
+- ทุกอย่างต้องพอดี H สั้น (~375) ไม่มี scroll แนวตั้ง — padding กระชับ.
+
+**C. คงเดิมทั้งหมด:** engine/pure functions + test_poker.js ไม่แตะ; portrait ของแอปส่วนอื่นไม่แตะ; เกมอื่นไม่แตะ; ไม่ bump/commit/deploy (ผู้ออกแบบตรวจรับ+ปล่อยเอง). backup `index.html.bak-land` ก่อนแก้.
+
+**D. Done = ผู้ออกแบบขับเล่นจริง:** (1) viewport แนวตั้ง 375×812 → เห็นเกมตะแคงเต็มจอ โต๊ะใหญ่ ปุ่มกดติด; (2) viewport แนวนอน 812×375 → เกมตรงเต็มจอ เล่นจบมือถึง showdown ได้; ทั้ง 2 ธีม; ไม่มี console error; setup/champion ยังแนวตั้ง; เกมอื่น regression ผ่าน.
