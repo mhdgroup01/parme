@@ -242,3 +242,32 @@ tiebreak = อาร์เรย์เลขเทียบตามลำดั
 **วินัย:** cp index.html index.html.bak-lux ก่อน; แก้ผ่าน python assert occurrence; python3 tools/check.py ผ่าน; node tools/test_poker.js 37/37 ผ่าน (ไม่แตะ engine); **ห้าม bump/commit/deploy** (ผู้ออกแบบตรวจรับ+ปล่อย). ผู้ออกแบบมีภาพอ้างอิงในหัวแล้ว จะขับเล่นตรวจเองทั้ง landscape 812×375 + portrait-rotated 375×812.
 
 **Done = ผู้ออกแบบเห็นด้วยตา:** โต๊ะแดงเลือด+รางหิน+ไฟทอง+พระจันทร์+ดาว ดู cinematic แบบ LuxStyle; ไพ่มือใหญ่ขึ้นจริง; ผู้ชนะเด่น (มงกุฎ+ชื่อ+จำนวน); เล่นจบมือถึง showdown; 0 console error; เกมอื่น+เทสต์ผ่าน.
+
+---
+
+## §12 สกินโต๊ะ "Classic Arena" (จากอ้างอิง CragonGame/CasinosClient — MIT — โดย Fable 5, 2026-07-19)
+
+**เป้าหมาย:** เพิ่มสกินโต๊ะแบบ CragonGame (โป๊กเกอร์สนามแข่งคลาสสิก teal) + **ทำเป็นตัวเลือกสกิน** ให้สลับกับ LuxStyle เดิมได้. **ดูภาพอ้างอิงจริงก่อนทำ** (Read): `<scratchpad>/cragon/a.png` (โต๊ะเล่นจริง — สำคัญสุด) + `<scratchpad>/cragon/f.png` (สไตล์ UI แผง). path เต็ม: `/private/tmp/claude-501/-Users-mickysili-raw/bf3a216f-eee1-4972-831d-d6ec48232577/scratchpad/cragon/a.png` และ `.../f.png`.
+
+**ข้อจำกัด (ห้ามข้าม):** CSS ล้วน single-file — สื่ออารมณ์ ไม่ก๊อป pixel; **ห้ามใช้โลโก้/คำ "Cragon Poker" หรือภาพตัวละคร/avatar ของเขา** (ลิขสิทธิ์ภาพ) — watermark กลางโต๊ะ = "P" Parme, avatar = อักษรแรกแบบเดิม. ห้ามแตะ engine/เกมอื่น/manifest/landscape rotate(§10).
+
+**A. ระบบเลือกสกิน (ใหม่):**
+- state `pkSkin` เก็บ localStorage `paruay_poker_skin` ('classic' | 'lux'), **default 'classic'** (ที่เพิ่งขอ). LuxStyle (§11) = 'lux' ยังอยู่.
+- helper `pkSkinLux()` = `pkSkin==='lux'`; pkTableView/pkRoot/pkBtnStyle/pkPotEl branch ตาม skin.
+- UI เลือก: เพิ่มแถวในจอ setup (§7 idiom) + ในชีตตั้งค่ากลางเกม (pkCfgSheet) — 2 ปุ่ม "Classic / LuxStyle".
+
+**B. Classic Arena visuals (จากภาพ a — จูนกับภาพจริง):**
+- สักหลาด: **teal** `radial-gradient(ellipse 78% 84% at 50% 40%, #1b8378 0%, #0f6157 44%, #08423b 74%, #04231f 100%)` + วงในสว่างกว่าจาง + เส้นทองบาง 1.5px ขอบสักหลาด (แทนไฟแดง Lux)
+- ราง: **หนังเข้ม** `linear-gradient(180deg,#4a3venes...)` → ใช้ `#4a3524→#241610` + เส้นตะเข็บ (inset light 1px) + sheen จาง; ไม่มีแท่งไฟทอง (นั่นของ Lux)
+- ฉากหลัง: **สนามแข่งน้ำเงิน** — base `radial-gradient(130% 100% at 50% -5%, #1e3a5f 0%, #0a1730 62%, #050b18 100%)` + แถบอัฒจันทร์เบลอ (แถบแนวนอนกลางจอ สีเข้มกว่า + จุดเล็กจางๆ = ฝูงชน) + ไฟเวที 2 ดวง (radial ขาว-ฟ้าจางมุมบน) + เส้นพื้น grid perspective จางๆ + vignette
+- ปุ่ม action (pkBtnStyle classic): **Fold แดง** `#e0463a→#b02a1e`, **Call เขียว** `#3fbf4a→#2a9036`, **Raise ทอง** `#f2b93a→#d98f1e` — มน มี highlight บน (glossy)
+- ปุ่มลัด raise (Min/½/Pot/All-in): พิลล์ **ม่วง-น้ำเงินเงา** `#5a4fb0→#3a2f80` (แทนโทน Lux)
+- ชิปเดิมพัน/pot: โทน **ชมพูม่วง** `#d63a8f` (ถ้ามี pkChip); pot pill = น้ำเงินเข้มขอบทอง
+- แผง HUD/seat: กระจกน้ำเงิน-navy `rgba(18,38,74,0.82)` ขอบทองจาง (แทนดำ Lux); วงแหวนถึงตา = ทอง/เขียว teal
+- watermark กลาง = "P" Parme emboss จาง
+
+**C. คงงานเดิม:** ไพ่มือ 66×92, board 24% / pot 36% (แก้ collision แล้ว), pkWinBanner มงกุฎ+ชื่อ, landscape rotate — ทุกอย่างทำงานทั้ง 2 สกิน.
+
+**วินัย:** cp index.html index.html.bak-arena; python assert occurrence; check.py + test_poker.js 37/37 ผ่าน; ห้าม bump/commit/deploy (ผู้ออกแบบตรวจรับ+ปล่อย); backup ครบ.
+
+**Done = ผู้ออกแบบเห็นด้วยตา:** สกิน Classic = โต๊ะ teal+รางหนัง+ฉากสนามน้ำเงิน+ปุ่มแดง/เขียว/ทอง ดูเหมือน CragonGame; สลับไป LuxStyle ได้กลับมาแดงเดิม; เล่นจบมือถึง showdown ทั้ง 2 สกิน; landscape+portrait; 0 error; เกมอื่น+เทสต์ผ่าน.
