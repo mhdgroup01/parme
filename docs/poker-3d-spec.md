@@ -219,3 +219,26 @@ tiebreak = อาร์เรย์เลขเทียบตามลำดั
 **C. คงเดิมทั้งหมด:** engine/pure functions + test_poker.js ไม่แตะ; portrait ของแอปส่วนอื่นไม่แตะ; เกมอื่นไม่แตะ; ไม่ bump/commit/deploy (ผู้ออกแบบตรวจรับ+ปล่อยเอง). backup `index.html.bak-land` ก่อนแก้.
 
 **D. Done = ผู้ออกแบบขับเล่นจริง:** (1) viewport แนวตั้ง 375×812 → เห็นเกมตะแคงเต็มจอ โต๊ะใหญ่ ปุ่มกดติด; (2) viewport แนวนอน 812×375 → เกมตรงเต็มจอ เล่นจบมือถึง showdown ได้; ทั้ง 2 ธีม; ไม่มี console error; setup/champion ยังแนวตั้ง; เกมอื่น regression ผ่าน.
+
+---
+
+## §11 ธีมโต๊ะ "LuxStyle" (ออกแบบจากอ้างอิง hd.poker/Lux Style #4 โดย Fable 5, 2026-07-19)
+
+**เป้าหมาย:** ทำหน้าตาโต๊ะโป๊กเกอร์ Parme ให้เป็นธีม cinematic "LuxStyle" แดงเลือด-หินหรู แทนโต๊ะเขียว/น้ำเงินเดิม — **โต๊ะเป็นโลกภาพของตัวเอง ใช้ธีมนี้เสมอ ไม่ผูกกับ app theme (เลิก pkFb() switch สีโต๊ะ)**. คงทุกอย่างอื่น: กติกา/engine/landscape rotate (v3.7.338)/seats/gameplay ไม่แตะ.
+
+**ข้อจำกัดสำคัญ (ห้ามข้าม):** CSS ล้วน single-file ไม่มี asset รูป → **ทำได้แค่ "สื่ออารมณ์" ไม่ใช่ก๊อป pixel** ของภาพวาด Stonehenge/ตัวละครของเขา. **ห้ามใช้โลโก้/แบรนด์ "HD POKER"** (ลิขสิทธิ์+เลียนแบรนด์) — watermark กลางโต๊ะใช้มาร์กของ Parme เอง (ตัว "P" display สีแดงเข้ม emboss จางๆ). ห้าม emoji ใหม่/hex ธีมเขียวหลุด/แตะเกมอื่น/manifest.
+
+**พาเลตต์ (จากภาพอ้างอิงที่แคปไว้ — จูนกับภาพจริงได้):**
+- สักหลาด: `radial-gradient(ellipse at 50% 38%, #9a2222 0%, #6e1414 42%, #3f0c0c 74%, #230606 100%)` + เส้นไฟแดงขอบใน pill: border/inset shadow `rgba(255,70,70,0.55)` เรืองแสง (แทนวงรีขาวจางเดิม)
+- ราง (rail): หิน — `linear-gradient(180deg,#7a6470,#3e2e34)` + ลายด่างจางๆ (repeating-linear หรือ box-shadow inset) + **แท่งไฟทองเรืองแสงที่ทุกที่นั่ง** (div เล็กแนวตั้ง `linear-gradient(#ffd27a,#e0942a)` + `box-shadow 0 0 10px #f0a83a`) วางตามตำแหน่ง seat รอบราง; ทริมทองเส้นบาง 1.5px ระหว่างราง-สักหลาด
+- ฉากหลัง: cinematic มืด — base `radial-gradient(120% 90% at 50% 15%, #3a1020 0%, #120209 70%)` + **พระจันทร์เลือด** (วงกลม radial-gradient `#ff7a3c→#c22020→transparent` เรืองส้ม-แดง มุมบน + จุด lens-flare ขาว) + **starfield** (จุดขาวเล็กๆ ด้วย box-shadow หลายจุด หรือ radial-gradient ซ้ำ, opacity ต่ำ) + เนบิวลาม่วงจาง (radial magenta 0.15) + **vignette** ดำรอบขอบหนัก
+- Accent: ฟ้าไฟฟ้า `#39c0ff` (chevron/HUD interactive), ทอง `#e8b04a` (ทริม/ผู้ชนะ)
+- HUD/ปุ่ม: แผงเข้มแดง-ดำเงาวับ ขอบ cyan/ทองจาง, มน; ปุ่ม action คงโครงเดิมแต่ปรับโทนให้เข้าธีม (Fold แดงเข้ม, Call เทาเข้ม, Raise ทอง/แดงเรือง)
+
+**รวมงานค้างเดิม 2 ข้อ (จากคำสั่งก่อนถูก interrupt):**
+1. **ไพ่มือผู้เล่นใหญ่ขึ้น** — pkHoleZone ปัจจุบัน 50×70 → ~66×92 (จูนให้พอดี H สั้น ~375 ไม่ทับ pot/ปุ่ม; แก้ทั้ง width/height + pkCardBack + pkFaceEl)
+2. **ผู้ชนะเด่นขึ้น** — pkWinBanner: เพิ่มไอคอน CrownIc + ชื่อผู้ชนะเหนือชื่อมือ, ขยายป้ายชื่อมือ (20→26) เรืองทองแรงขึ้น; pkActionZone showdown "wins +N" → พิลล์ทองมีมงกุฎ ใหญ่ขึ้น; ถ้าคนจริง (seat0) ชนะให้มีไฮไลต์ด้วย (seat0 ไม่มี pkSeatPlate — ใช้ banner + เรืองไพ่มือแทน)
+
+**วินัย:** cp index.html index.html.bak-lux ก่อน; แก้ผ่าน python assert occurrence; python3 tools/check.py ผ่าน; node tools/test_poker.js 37/37 ผ่าน (ไม่แตะ engine); **ห้าม bump/commit/deploy** (ผู้ออกแบบตรวจรับ+ปล่อย). ผู้ออกแบบมีภาพอ้างอิงในหัวแล้ว จะขับเล่นตรวจเองทั้ง landscape 812×375 + portrait-rotated 375×812.
+
+**Done = ผู้ออกแบบเห็นด้วยตา:** โต๊ะแดงเลือด+รางหิน+ไฟทอง+พระจันทร์+ดาว ดู cinematic แบบ LuxStyle; ไพ่มือใหญ่ขึ้นจริง; ผู้ชนะเด่น (มงกุฎ+ชื่อ+จำนวน); เล่นจบมือถึง showdown; 0 console error; เกมอื่น+เทสต์ผ่าน.
