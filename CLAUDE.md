@@ -18,10 +18,11 @@ Paruay เป็น **single-file React PWA** ไฟล์เดียวคื�
 ## สถาปัตยกรรม (ข้อจำกัดที่ต้องยึดเสมอ)
 - **ไฟล์เดียว** — ทุกอย่างอยู่ใน `index.html` ห้ามแตกไฟล์ JS/CSS ออก
 - **ไม่มี build step** — โค้ดเขียน `React.createElement` ตรงๆ (มี `h` เป็น alias) ไม่มี Babel runtime ในเบราว์เซอร์
-- **Deploy: self-host บน Hostinger VPS** — https://parme.me + www (nginx container `parme-prod`, DNS ผ่าน Cloudflare → 187.127.122.252). repo `mhdgroup01/paruay` branch `main` ยัง sync อยู่แต่ **GitHub Pages ไม่ใช่ตัวเสิร์ฟ prod แล้ว** (เหลือเป็น fallback: revert DNS กลับ 185.199.108-111.153) — ย้ายมา VPS ตั้งแต่ 2026-07-02
+- **Deploy: self-host บน Hostinger VPS** — https://parme.me + www (nginx container `parme-prod`, DNS ผ่าน Cloudflare → 187.127.209.83). repo `mhdgroup01/paruay` branch `main` ยัง sync อยู่แต่ **GitHub Pages ไม่ใช่ตัวเสิร์ฟ prod แล้ว** (เหลือเป็น fallback: revert DNS กลับ 185.199.108-111.153) — ย้ายมา VPS ตั้งแต่ 2026-07-02
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
+v3.7.369 (2026-07-22 — **ชั้น UI จอใหญ่ (iPad/คอมพิวเตอร์) ทั้งแอป** — CSS overlay ล้วนตามไอดิออมธีม fb + className โครงสร้าง POS 5 จุด (`pv-pos-shell/head/tabs/body/cart`), **มือถือไม่โดนแตะ** (ทุกกฎใต้ `min-width:700 + min-height:520` หรือ `hover+pointer:fine`; ยืนยันจาก DOM: กริดขายมือถือยัง 3 คอลัมน์): เวที backdrop ไล่สีจาก `--pv-primary` ผ่าน `color-mix` (ตามธีมอัตโนมัติ ทั้งเขียว+fb), ชีต/โมดัล 600→720 + ชีตแปะขอบล่าง→กล่องกลางจอมุมโค้ง 22 + เงา, POS เป็นหน้าต่างลอย (≥900: กว้าง 920 + กริดสินค้า/โต๊ะ 3→4 คอลัมน์ — เฉพาะ `repeat(3,1fr)+gap:10px` ใน shell, กริดเลข vmoto gap:6 กับแถวสถิติ `'1fr 1fr 1fr'` ไม่โดน), **≥1100: หน้าขายสองคอลัมน์ สินค้าซ้าย-ตะกร้าขวา 400px ด้วย `:has(>.pv-pos-cart)`** (เบราว์เซอร์ไม่มี :has → คอลัมน์เดียวกว้าง งามเหมือนกัน; แท็บอื่น shell กลับคอลัมน์เดียวอัตโนมัติ), hover ปุ่ม/การ์ดเฉพาะเมาส์. verified ในพรีวิว ?demo=1: 1280/768×1024/390×844 + ธีม fb + เทียบ prod 368 ที่ 390px. หมายเหตุ: จอแชต AI เต็มจอกว้างบนเดสก์ท็อป — ใช้ได้แต่ยังไม่ได้จัดเป็นคอลัมน์ ไว้ค่อยเก็บ)
 v3.7.306 (2026-07-17 — **เมนูลูกค้า QR รวม ร้อน/เย็น/ปั่น เป็น tile เดียว + แผงเลือก** เหมือนหน้าขาย; ย้าย varBase/groupShown ขึ้น module scope แชร์ 2 คอมโพเนนต์. verified e2e กับข้อมูลจริงร้าน vmotolaos)
 v3.7.305 (2026-07-17 — **หน้าขาย POS รวมสินค้า ร้อน/เย็น/ปั่น (ชื่อฐานเดียวกัน) เป็น tile เดียว** → แตะแล้ว bottom sheet เลือกแบบ (คำแบบดึงจาก I18N runtime ไม่ hardcode); การแสดงผลล้วน เส้นทางเงินไม่แตะ)
 v3.7.304 (2026-07-17 — ช่องต้นทุนต่อแบบ ร้อน/เย็น/ปั่น ในฟอร์มเพิ่มสินค้า (ว่าง=ใช้ต้นทุนหลัก))
@@ -99,7 +100,7 @@ while True:
 prod ตัวจริงคือ nginx บน VPS — **push GitHub อย่างเดียวไม่ deploy แล้ว** ต้อง rsync ด้วย:
 ```
 # 1) deploy จริง (VPS)
-rsync -e "ssh -i ~/.ssh/hostinger_vps_ed25519" -av ~/paruay/index.html root@187.127.122.252:/docker/parme-prod/html/index.html
+rsync -e "ssh -i ~/.ssh/hostinger_vps_ed25519" -av ~/paruay/index.html root@187.127.209.83:/docker/parme-prod/html/index.html
 # 2) verify
 curl -s https://parme.me/ | grep -o 'app-version" content="[^"]*'
 # 3) เก็บ repo ให้ตรง prod (+GitHub Pages fallback)
