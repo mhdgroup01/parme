@@ -1,4 +1,4 @@
-// Paruay service worker — Web Push + offline app-shell cache (v3, 2026-07-13)
+// Parme service worker — Web Push + offline app-shell cache (v3, 2026-07-13)
 // NOTE: a service worker MUST be its own file (browser requirement) — it cannot
 // live inside the single-file index.html.
 //
@@ -9,7 +9,9 @@
 //   • คำขออื่น (Supabase REST/realtime, CDN อื่น): ไม่แตะ — ปล่อยให้แอปจัดการเอง (localStorage)
 
 var VER = (function () { try { return new URL(self.location).searchParams.get('v') || '0'; } catch (e) { return '0'; } })();
-var CACHE_PREFIX = 'paruay-shell-';
+var CACHE_PREFIX = 'parme-shell-';
+// v3.7.393 — เปลี่ยนชื่อแบรนด์: ต้องกวาด cache ชื่อเดิมทิ้งด้วย ไม่งั้นค้างในเครื่องผู้ใช้ตลอดไป
+var OLD_PREFIXES = ['paruay-shell-'];
 var CACHE = CACHE_PREFIX + VER;
 var SHELL = './';
 var SUPA_LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
@@ -31,9 +33,13 @@ self.addEventListener('activate', function (e) {
   e.waitUntil((async function () {
     try {
       // CacheStorage เป็นของทั้ง origin (parme.me) ไม่ใช่ของ SW scope นี้ —
-      // ลบเฉพาะ cache ของ Paruay เอง (prefix) ไม่งั้นไปกวาด offline shell ของแอปอื่นบน origin เดียวกัน
+      // ลบเฉพาะ cache ของ Parme เอง (prefix ปัจจุบัน + ชื่อเก่า) ไม่งั้นไปกวาด offline shell ของแอปอื่นบน origin เดียวกัน
       var keys = await caches.keys();
-      await Promise.all(keys.map(function (k) { return k.indexOf(CACHE_PREFIX) === 0 && k !== CACHE ? caches.delete(k) : null; }));
+      await Promise.all(keys.map(function (k) {
+        var mine = k.indexOf(CACHE_PREFIX) === 0;
+        var old = OLD_PREFIXES.some(function (p) { return k.indexOf(p) === 0; });
+        return ((mine && k !== CACHE) || old) ? caches.delete(k) : null;
+      }));
     } catch (_) {}
     try { await self.clients.claim(); } catch (_) {}
   })());
