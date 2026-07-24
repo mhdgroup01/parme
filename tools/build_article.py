@@ -3,7 +3,7 @@
 import json, sys, io
 DATA = '/tmp/paruay_guide_i18n.json'
 lang = sys.argv[1] if len(sys.argv) > 1 else 'th'
-OUT = sys.argv[2] if len(sys.argv) > 2 else '/Users/mickysili/paruay/docs/paruay-guide.md'
+OUT = sys.argv[2] if len(sys.argv) > 2 else '/Users/mickysili/parme/docs/paruay-guide.md'
 data = json.load(open(DATA, encoding='utf-8'))
 
 HEAD = {

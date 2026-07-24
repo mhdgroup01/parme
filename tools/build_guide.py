@@ -2,7 +2,7 @@
 """Build the Paruay user-guide web app (guide.html), trilingual (th/lo/en) + illustrations."""
 import json, html, io, sys
 DATA = sys.argv[1] if len(sys.argv) > 1 else '/tmp/paruay_guide_i18n.json'
-OUT = sys.argv[2] if len(sys.argv) > 2 else '/Users/mickysili/paruay/guide.html'
+OUT = sys.argv[2] if len(sys.argv) > 2 else '/Users/mickysili/parme/guide.html'
 data = json.load(open(DATA, encoding='utf-8'))   # list of {th,lo,en} domains
 
 LANGS = ['th', 'lo', 'en']

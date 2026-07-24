@@ -31,7 +31,7 @@ def main():
         print("✗ หา script block หลัก (ที่มี APP_VERSION) ไม่เจอ", file=sys.stderr)
         return 1
 
-    tmp = os.path.join(tempfile.gettempdir(), "paruay_app.js")
+    tmp = os.path.join(tempfile.gettempdir(), "parme_app.js")
     io.open(tmp, "w", encoding="utf-8").write(app_code)
     kb = len(app_code) // 1024
     print(f"• script blocks: {blocks} | main block: {kb}KB -> {tmp}")

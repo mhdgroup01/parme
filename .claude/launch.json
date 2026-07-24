@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "paruay",
+      "name": "parme",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8083", "--directory", "/Users/mickysili/paruay"],
+      "runtimeArgs": ["-m", "http.server", "8083", "--directory", "/Users/mickysili/parme"],
       "port": 8083
     }
   ]
