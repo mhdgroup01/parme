@@ -22,6 +22,16 @@ Parme (ພາme) เป็น **single-file React PWA** ไฟล์เดีย
 - **Backend: self-host Supabase บน VPS** (`https://api.parme.me`, project ref เดิม `rilrbflteuwhomrwfcsa` ยังใช้เป็นชื่อ display) — auth (GoTrue)/realtime/postgres/edge functions รันบน VPS. **Supabase Cloud เก็บไว้เป็น fallback** (snapshot วัน cutover ไม่ใช่ backup ปัจจุบัน). รายละเอียดโครงสร้าง VPS ดู second-brain memory `[[hostinger-vps]]`
 
 ## เวอร์ชันปัจจุบัน
+v3.7.412 (2026-07-26 — **เก็บ 3 งานค้างจาก v3.7.411 (เจ้าของสั่ง "เอาตามที่คุณว่าเลย") + แก้ regression ที่ตัวเองสร้างในรอบเดียวกัน**.
+
+**(1) ปุ่มดาวน์โหลด APK ในหน้า admin ใช้ path สัมพัทธ์** (มาตั้งแต่ v3.7.285) — `'/parme.apk'` ในแอปเนทีฟ resolve เป็น `https://localhost/parme.apk` (Android) / `capacitor://localhost/parme.apk` (iOS) ซึ่งไม่มีไฟล์ ⇒ กดแล้วเงียบ. แก้เป็น URL เต็ม `https://parme.me/...` ทั้งสองปุ่ม — Android: `Bridge.launchIntent` ตัดสินจาก **host** ไม่ใช่ `target` (อ่านซอร์ส: ถ้าโฮสต์/สคีมไม่ตรงกับ appUrl และไม่อยู่ใน `allowNavigation` → `Intent.ACTION_VIEW` = เปิดเบราว์เซอร์ระบบ) จึงไม่ต้องเติม `target=_blank` และ **บนเว็บยังเป็น same-origin ⇒ `download` ทำงานเหมือนเดิมเป๊ะ ไม่มีการเปลี่ยนพฤติกรรมฝั่งเว็บ**. Capacitor Android ไม่ได้ลงทะเบียน `DownloadListener` และไม่เปิด `setSupportMultipleWindows` ⇒ คลิกกลายเป็น navigation ปกติที่เข้า `shouldOverrideUrlLoading` แน่นอน.
+**🔴 regression ที่ตัวเองสร้างและจับได้จาก review**: บน **iOS** การเปลี่ยนเป็น URL เต็มทำให้พฤติกรรมเปลี่ยนจาก "กดแล้วเงียบ" เป็น "ถูก Capacitor เตะออก Safari แล้วโหลด APK 5 MB ที่ iPhone ติดตั้งไม่ได้" (`WebViewDelegationHandler`: `!isApplicationNavigation && toplevelNavigation` → `UIApplication.shared.open` + `.cancel`; iOS ไม่มี `WKDownloadDelegate` เลย) — และรอบนี้เองเป็นรอบที่เริ่มปล่อย iOS จริง (ข้อ 3). แก้ด้วย `__isIosNative()` gate ทั้งสองปุ่ม ใช้มาตรฐานเดียวกับ `UpdateBanner` ที่ gate `getPlatform() !== 'android'` ไว้แล้ว. ปุ่มนี้เห็นเฉพาะ `profiles.is_admin` จึงวงจำกัด แต่เป็นผลเสียจริงและเกิดจากบรรทัดที่รอบนี้แก้เอง.
+
+**(2) `tools/release.sh` เขียนใหม่ทั้งไฟล์** — ของเดิมบรรทัดสุดท้ายบอกให้ push แล้วรอ GitHub Pages ซึ่ง **ไม่ใช่ prod ตั้งแต่ v3.7.249** และไม่รู้จัก `parme.apk` / `app-version.json` ที่แอปเนทีฟต้องใช้ตั้งแต่ v3.7.411 ⇒ ใครเชื่อมันจะคิดว่า deploy แล้วทั้งที่เว็บยังเวอร์ชันเก่า. ตัวใหม่: bump → check → **พิมพ์ทั้ง 5 ขั้นพร้อมค่าที่กรอกไว้แล้ว** (อ่าน `versionCode`/`versionName` จาก `build.gradle` มาเทียบให้, เตือนถ้ายังไม่ bump และบอกเลขถัดไป รวมทั้ง `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` ของ iOS), คงเจตนาเดิมคือ **ไม่ deploy/ไม่ push ให้เอง**. 2 จุดที่ review จับได้แล้วแก้: (ก) ขั้นที่ 3 เดิมพิมพ์ `scp` APK แล้วพิมพ์ `printf` app-version.json แยกกันโดยไม่มีอะไรผูกเลขที่ประกาศกับไฟล์ที่อัปจริง ⇒ ถ้า build/scp ล้มแต่รันคำสั่งถัดไป จะประกาศเวอร์ชันที่ไม่มีอยู่บนเซิร์ฟเวอร์ (แอปทุกเครื่องเด้งแบนเนอร์ไปโหลด APK เก่า) — แก้เป็น **ร้อยด้วย `&&` ทั้งเส้น + อ่าน versionCode/versionName จาก `output-metadata.json` ของ APK ที่ build ออกมาจริง** ไม่พิมพ์มือ + เพิ่มขั้นตรวจ `curl` app-version.json และเทียบ sha256 ของ APK ในเครื่องกับบนเซิร์ฟเวอร์. (ข) ธงตรวจ `sw.js` ใช้ `git diff --name-only` ซึ่ง **ตาบอดถ้าเจ้าของ `git add` ไปแล้ว** (ซึ่งเป็นสถานะที่สคริปต์เองแนะนำในขั้นที่ 2) ⇒ เปลี่ยนเป็น `git status --porcelain -- sw.js`.
+
+**(3) เวอร์ชัน iOS** — `MARKETING_VERSION` 1.0 → 3.7.412 และ `CURRENT_PROJECT_VERSION` 1 → 20 ครบทั้ง Debug และ Release configuration (`Info.plist` อ้างผ่านตัวแปรอยู่แล้ว จึงไม่ต้องแตะ). **verified ด้วยการ build จริง** ไม่ใช่แค่แก้ไฟล์: `xcodebuild -configuration Release` ผ่าน และ `Info.plist` ในไบนารีที่ออกมาให้ `CFBundleShortVersionString = 3.7.412`, `CFBundleVersion = 20`.
+
+**กระบวนการ**: review 3 เลนส์ × 16 เอเจนต์ (ยืนยัน 4 / ตกไป 12) — ที่ตกไปเช่น "www/index.html ค้างเวอร์ชันเก่า" (เป็น build artifact ที่ gitignore) และ "ปุ่ม APK ควรซ่อนบน iOS อยู่แล้วก่อนรอบนี้" (เดลต้าบนเว็บ/PWA = ศูนย์). APK = versionCode 20)
 v3.7.411 (2026-07-26 — **แก้ของ v3.7.410 เองหลัง adversarial review 4 เลนส์ × 25 เอเจนต์ (ยืนยัน 10 / ตกไป 11) — 410 ยัง *ไม่ได้* แก้บั๊กที่เจ้าของรายงานบนเครื่องจริง และแถมทำให้ POS ขายของไม่ได้**.
 
 **(1) 🔴 แถบสถานะ: 410 เดาจากเวอร์ชัน Android ซึ่งเป็นแกนที่ผิด** — ตัวชี้ขาดว่า "ใครเป็นเจ้าของพื้นแถบ" ไม่ใช่เวอร์ชัน OS แต่เป็น **เวอร์ชัน WebView**: `@capacitor/android` `SystemBars.java:41` `WEBVIEW_VERSION_WITH_SAFE_AREA_FIX = 140` และ `:200` `shouldPassthroughInsets = getWebViewMajorVersion() >= 140 && hasViewportCover` (เรามี `viewport-fit=cover` ที่บรรทัด 5) ⇒ **WebView ≥140 = Capacitor ส่ง inset ทะลุ ไม่ใส่ padding ให้เว็บวิว** ⇒ หน้าเพจของเราวาดใต้แถบสถานะ พื้นแถบคือสีของเราเอง. ที่วัดได้ `inset = 0` ตอน 410 เป็นเพราะ **อีมูเลเตอร์ตัวที่ใช้มี WebView 124** (ตรวจด้วย `dumpsys package com.google.android.webview`) — ผลวัดนั้นจึง generalize ไม่ได้ และบนเครื่องจริงปี 2026 (WebView ≥140) + ดาร์กโหมด **บั๊กเดิมยังอยู่ครบ**: 410 สั่ง `DEFAULT` → ระบบเลือก DARK ตามธีมเครื่อง → ไอคอนขาวบนพื้นครีม #FAF6EE ≈ 1.08:1. อีก 2 รูรั่วของ 410: userAgent แบบ reduced รายงาน "Android 10" (หลุดเข้าสาขา ≤14 แล้วบังคับสไตล์ทั้งที่ setBackgroundColor เงียบ) และ `__pageColor()` อ่านแค่ `--pv-page` ทั้งที่ **หัว POS (`linear-gradient` เขียวเข้ม z-index 200) วาดทับเขตแถบ** ⇒ บน iOS ได้ไอคอนดำบนเขียวเข้ม 2.0–2.7:1 ตลอดเวลาที่อยู่หน้า POS.
@@ -129,7 +139,7 @@ v3.7.258 (2026-07-04 — แก้ login error message: อ่าน error จ�
 > 🛠️ **มี helper scripts ใน `tools/` แล้ว** (ใช้แทนขั้นตอนมือด้านล่าง — ปลอดภัยกว่า):
 > - `python3 tools/bump.py 3.7.xx` — bump ครบ 4 จุด อัตโนมัติ (assert จุดละ 1 ครั้งก่อนเขียน, ไม่แตะ comment ประวัติ; มี `--dry` ดูก่อนได้)
 > - `python3 tools/check.py` — แยก block หลัก (ที่มี `APP_VERSION`) แล้วรัน `node --check` ให้เลย
-> - `bash tools/release.sh 3.7.xx "สรุปสั้น"` — bump → check → โชว์คำสั่ง commit/push (ไม่ push ให้เอง)
+> - `bash tools/release.sh 3.7.xx "สรุปสั้น"` — bump → check → พิมพ์ขั้นตอน deploy ทั้ง 5 ขั้น (เว็บ/commit/APK/app-version.json/ตรวจ hash) ไม่ deploy ให้เอง
 > ขั้นตอนมือด้านล่างเก็บไว้เป็นเอกสารอ้างอิง/fallback ถ้า script มีปัญหา
 
 ### 1. Version bump — แก้ครบ **4 จุด** ทุกครั้งที่ release
@@ -191,7 +201,8 @@ scp -i ~/.ssh/hostinger_vps_ed25519 /tmp/av.json root@187.127.209.83:/docker/par
 ```
 ⚠️ `app-version.json` **ต้องมี CORS** (`Access-Control-Allow-Origin: *` ใน `/docker/parme-prod/default.conf`)
 เพราะแอปฝังไฟล์มี origin `https://localhost` → อ่านข้ามโดเมน. ถ้ากฎนี้หาย แบนเนอร์จะเงียบด้วย `TypeError: Failed to fetch`
-⚠️ `tools/release.sh` **ยังไม่รู้จักขั้นที่ 1/4/5** (บรรทัดสุดท้ายยังบอก GitHub Pages ซึ่งไม่ใช่ prod แล้ว) — อย่าเชื่อว่ารันแล้ว deploy ครบ
+✅ `tools/release.sh` (เขียนใหม่ v3.7.412) พิมพ์ทั้ง 5 ขั้นให้พร้อมค่าที่กรอกไว้แล้ว รวมทั้งดึง `versionCode` จาก APK ที่ build จริง
+และขั้นตรวจ hash เทียบกับไฟล์บนเซิร์ฟเวอร์ — แต่มันยัง **ไม่ deploy ให้เอง** (โดยเจตนา) ต้องรันคำสั่งที่มันพิมพ์ออกมา
 nginx ส่ง `Cache-Control: no-cache` ให้ HTML/sw.js แล้ว (ตั้งใน `/docker/parme-prod/default.conf` 2026-07-04) → ผู้ใช้ได้เวอร์ชันใหม่ตอนเปิดแอปรอบถัดไป. ถ้าแก้ schema DB → รัน SQL บน VPS (`docker exec supabase-db psql -U postgres`) + เก็บไฟล์ใน `tools/migrations/` + **อย่าลืม `NOTIFY pgrst, 'reload schema';`** ไม่งั้น PostgREST ไม่รู้จักคอลัมน์ใหม่
 
 ## โครงสร้าง Supabase (ตารางหลัก)
