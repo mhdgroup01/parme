@@ -7,14 +7,23 @@ const src = fs.readFileSync(SRC, 'utf8');
 // ตัดโค้ด "ทั้งบล็อกติดกัน" ตั้งแต่ const SYNC_CUR_KEY จนจบ deltaBootFetch
 // (เคยพลาด: ตัดเฉพาะฟังก์ชันแล้วลืมค่าคงที่ SYNC_CUR_KEY / DELTA_BOOT_CAP ⇒ ทุกเคสคืน null
 //  เพราะ ReferenceError ถูกกลืนใน catch ⇒ เคสด้านลบ "ผ่าน" ทั้งที่ไม่ได้ทดสอบอะไรเลย)
-const A = src.indexOf("  const SYNC_CUR_KEY = 'paruay_sync_cursor';");
+const A = src.indexOf("  const localSurvivors = (localArr, serverIds) => {");
 if (A < 0) throw new Error('ไม่พบจุดเริ่ม');
 const B = src.indexOf('  // ── LOAD ALL DATA FROM CLOUD AFTER LOGIN ──', A);
 if (B < 0) throw new Error('ไม่พบจุดจบ');
 const CODE = src.slice(A, B);
-['SYNC_CUR_KEY', 'DELTA_BOOT_CAP', 'syncCurRead', 'syncCurWrite', 'deltaBootFetch'].forEach(n => {
+['SYNC_CUR_KEY', 'DELTA_BOOT_CAP', 'syncCurRead', 'syncCurWrite', 'deltaBootFetch', 'localSurvivors'].forEach(n => {
   if (CODE.indexOf(n) < 0) throw new Error('ดึงโค้ดมาไม่ครบ: ' + n);
 });
+// ใช้ txFromRow/iouFromRow "ตัวจริง" ด้วย ไม่งั้นธง srv ที่มันติดให้จะไม่ถูกทดสอบเลย
+function grabTop(name) {
+  const i = src.indexOf('const ' + name + ' = r => ({');
+  if (i < 0) throw new Error('ไม่พบ ' + name);
+  const j = src.indexOf('});', i);
+  return src.slice(i, j + 3);
+}
+const ROWFNS = grabTop('txFromRow') + '\n' + grabTop('iouFromRow') + '\n';
+if (!/srv: 1/.test(ROWFNS)) console.log('⚠ txFromRow ไม่ติดธง srv');
 if (!/\.gte\(/.test(CODE)) throw new Error('ดึงโค้ดมาไม่ครบ: ไม่มี .gte');
 
 // ---- สภาพแวดล้อมจำลอง (เฉพาะสิ่งที่ deltaBootFetch พึ่งพา) ----
@@ -54,9 +63,19 @@ function makeEnv(o) {
     iousRef: { current: o.localIous || [] },
     txPendingRead: () => o.pending || [],
     txDelPendingRead: () => o.pendingDel || [],
-    txFromRow: r => ({ id: r.id, amount: r.amount, note: r.note }),
-    iouFromRow: r => ({ id: r.id, amount: r.amount })
+    // ตัวจริงจากไฟล์ (ไม่ใช่ของปลอม) — ทดสอบธง srv ที่มันติดให้ด้วย
+    rowFns: new Function(ROWFNS + 'return { txFromRow: txFromRow, iouFromRow: iouFromRow };')()
   };
+}
+
+function getLocalSurvivors(o) {
+  const env = makeEnv(o);
+  return new Function(
+    'localStorage', 'supabase', 'cursorDisabledRef', 'transactionsRef', 'iousRef',
+    'txPendingRead', 'txDelPendingRead', 'txFromRow', 'iouFromRow',
+    CODE + '\nreturn localSurvivors;'
+  )(env.localStorage, env.supabase, env.cursorDisabledRef, env.transactionsRef, env.iousRef,
+    env.txPendingRead, env.txDelPendingRead, env.rowFns.txFromRow, env.rowFns.iouFromRow);
 }
 
 async function run(o) {
@@ -66,7 +85,7 @@ async function run(o) {
     'txPendingRead', 'txDelPendingRead', 'txFromRow', 'iouFromRow',
     CODE + '\nreturn deltaBootFetch;'
   )(env.localStorage, env.supabase, env.cursorDisabledRef, env.transactionsRef, env.iousRef,
-    env.txPendingRead, env.txDelPendingRead, env.txFromRow, env.iouFromRow);
+    env.txPendingRead, env.txDelPendingRead, env.rowFns.txFromRow, env.rowFns.iouFromRow);
   const r = await fn(o.userId || 'u1');
   return { r, calls: env.calls };
 }
@@ -134,9 +153,31 @@ const check = (name, cond, extra) => { if (cond) { pass++; console.log('  ✓', 
   check('IOU ที่เปลี่ยนถูกผสมเข้า', out.r && out.r.ious.find(x => x.id === 'i1').amount === 77, out.r && out.r.ious);
   check('เคอร์เซอร์ IOU เดินตาม', out.r && out.r.iouMaxU === '2026-04-01');
 
+  console.log('=== ธง srv ต้องถูกติดให้แถวที่มาจากเซิร์ฟเวอร์ ===');
+  o = { ls: { paruay_sync_cursor: cur('2026-01-01'), paruay_tx_user: U }, localTx: [row('a','1',10)],
+        txDelta: [row('c', '2026-03-02', 30)], serverCount: 2 };
+  out = await run(o);
+  check('แถวที่เพิ่งมาจากเซิร์ฟเวอร์มีธง srv', out.r && out.r.txs.find(x => x.id === 'c') && out.r.txs.find(x => x.id === 'c').srv === 1, out.r && out.r.txs);
+
   o = { ls: { paruay_sync_cursor: cur('2026-01-01'), paruay_tx_user: U }, localTx: [row('a','1')], txDelta: [], serverCount: 1 };
   out = await run(o);
   check('ไม่มีเคอร์เซอร์ IOU → ไม่ยิงคำขอ IOU และคืน ious=null (ผู้เรียกดึงเต็ม)', out.r && out.r.ious === null && !out.calls.some(c => c.table === 'ious'));
+
+  console.log('=== localSurvivors: แถวในเครื่องที่เซิร์ฟเวอร์ไม่มี อยู่ต่อหรือถูกทิ้ง ===');
+  const srvIds = new Set(['keep-on-server']);
+  const L = [
+    { id: 'keep-on-server', srv: 1 },   // เซิร์ฟเวอร์มี → ไม่นับเป็น local-only
+    { id: 'offline-new' },              // สร้างในเครื่อง ยังไม่เคยขึ้น → ต้องเก็บ
+    { id: 'deleted-elsewhere', srv: 1 },// เคยอยู่บนเซิร์ฟเวอร์ แต่ตอนนี้ไม่มี → ต้องทิ้ง
+    { id: 'pending-edit', srv: 1 },     // เคยอยู่ แต่ยังค้างคิวส่ง → ต้องเก็บ
+    null, { }                           // ขยะ → ต้องไม่หลุดออกมา
+  ];
+  let surv = getLocalSurvivors({ pending: ['pending-edit'] })(L, srvIds).map(x => x.id);
+  check('ทิ้งเฉพาะแถวที่เคยอยู่บนเซิร์ฟเวอร์แล้วหายไป', JSON.stringify(surv) === JSON.stringify(['offline-new', 'pending-edit']), surv);
+  surv = getLocalSurvivors({ pending: [] })(L, srvIds).map(x => x.id);
+  check('ไม่มีของค้างคิว → แถวที่มีธง srv ถูกทิ้งทั้งหมด', JSON.stringify(surv) === JSON.stringify(['offline-new']), surv);
+  surv = getLocalSurvivors({ pending: [] })([{ id: 'old-no-flag' }], new Set()).map(x => x.id);
+  check('แถวเก่าที่ไม่มีธง (ก่อนอัปเวอร์ชัน) ยังถูกเก็บไว้', JSON.stringify(surv) === JSON.stringify(['old-no-flag']), surv);
 
   console.log('\n' + (fail ? '❌ ตก ' + fail + ' ข้อ' : '✅ ผ่านทั้งหมด') + ' (' + pass + '/' + (pass + fail) + ')');
   process.exit(fail ? 1 : 0);
