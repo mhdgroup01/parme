@@ -13,6 +13,11 @@ var CACHE_PREFIX = 'parme-shell-';
 // v3.7.393 — เปลี่ยนชื่อแบรนด์: ต้องกวาด cache ชื่อเดิมทิ้งด้วย ไม่งั้นค้างในเครื่องผู้ใช้ตลอดไป
 var OLD_PREFIXES = ['paruay-shell-'];
 var CACHE = CACHE_PREFIX + VER;
+// v3.7.423 — แคชของรูปที่แยกออกจาก index.html (ยันต์ / GIF สอนติดตั้ง iOS / รูปสินค้าตัวอย่าง)
+// ⚠️ **ชื่อคงที่ ห้ามผูกเวอร์ชัน** — ไฟล์พวกนี้เป็นรูปนิ่งที่ไม่เปลี่ยนตามเวอร์ชันแอป
+//    ถ้าผูกเวอร์ชัน ทุก deploy จะล้างทิ้งแล้วผู้ใช้ต้องโหลดรูปใหม่ทั้งชุด = ย้อนกลับไปแย่กว่าเดิม
+//    (activate ลบเฉพาะคีย์ที่ขึ้นต้นด้วย CACHE_PREFIX/OLD_PREFIXES ⇒ ชื่อนี้รอดโดยตั้งใจ)
+var ASSET_CACHE = 'parme-assets';
 var SHELL = './';
 var SUPA_LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
 var XLSX_LIB = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'; // v3.7.234 — Export Excel (มี style) ออฟไลน์
@@ -76,6 +81,15 @@ async function networkFirst(req) {
   }
 }
 
+async function cacheFirstIn(cacheName, req) {
+  var cache = await caches.open(cacheName);
+  var cached = await cache.match(req);
+  if (cached) return cached;
+  var res = await fetch(req);
+  if (res && res.ok) { try { await cache.put(req, res.clone()); } catch (_) {} }
+  return res;
+}
+
 async function cacheFirst(req) {
   var cache = await caches.open(CACHE);
   var cached = await cache.match(req);
@@ -92,6 +106,12 @@ self.addEventListener('fetch', function (e) {
   try { url = new URL(req.url); } catch (_) { return; }
   // 1) HTML document (โหลดแอป) → network-first, fallback cache
   if (req.mode === 'navigate') { e.respondWith(networkFirst(req)); return; }
+  // 1b) v3.7.423 — รูปที่แยกออกจาก index.html → cache-first ในแคชชื่อคงที่
+  //     เจตนา: **ไม่โหลดจนกว่าจะใช้จริง** (ผู้ใช้ส่วนใหญ่ไม่เคยเปิดตำราติดตั้ง iOS / ไม่ได้ใช้เมนูตัวอย่าง)
+  //     พอใช้ครั้งแรกแล้วอยู่ในเครื่องถาวร ⇒ ออฟไลน์รอบหน้าก็ยังเห็น และ deploy ใหม่ไม่ล้างทิ้ง
+  if (url.origin === self.location.origin && url.pathname.indexOf('/assets/') !== -1) {
+    e.respondWith(cacheFirstIn(ASSET_CACHE, req)); return;
+  }
   // 2) Supabase JS lib → cache-first (ออฟไลน์ก็มี)
   if (url.href.indexOf('supabase') !== -1 && url.href.indexOf('.js') !== -1 && url.origin !== self.location.origin) {
     e.respondWith(cacheFirst(req)); return;

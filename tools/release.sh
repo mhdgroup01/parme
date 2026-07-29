@@ -34,6 +34,11 @@ git diff --stat index.html || true
 SW_CHANGED=""
 git status --porcelain -- sw.js | grep -q . && SW_CHANGED=1 || true
 
+# v3.7.423 — รูปถูกแยกออกจาก index.html มาอยู่ที่ assets/ แล้ว
+# 🔴 ถ้าลืมส่งโฟลเดอร์นี้ขึ้นก่อน index.html ผู้ใช้จะเห็นรูปแตก (ยันต์หายจากการ์ดยอดเงิน)
+ASSETS_CHANGED=""
+git status --porcelain -- assets | grep -q . && ASSETS_CHANGED=1 || true
+
 # เวอร์ชันของแอปเนทีฟ — แบนเนอร์ในแอปเทียบ versionCode ของตัวเองกับ app-version.json บนเว็บ
 VC=""; VN=""
 if [[ -f "$GRADLE" ]]; then
@@ -48,6 +53,10 @@ echo "ผ่านหมดแล้ว ✓  ขั้นต่อไป (รั
 echo "prod ตัวจริง = nginx บน VPS — push GitHub อย่างเดียว 'ไม่' deploy"
 echo ""
 echo "  # 1) เว็บ + PWA"
+if [[ -n "$ASSETS_CHANGED" ]]; then
+echo "  # 🔴 รูปต้องขึ้นก่อน index.html เสมอ — ระหว่างที่ index ใหม่ขึ้นแล้วแต่รูปยังไม่ขึ้น ผู้ใช้จะเห็นรูปแตก"
+echo "  rsync -e \"ssh -i $KEY\" -az --delete assets/ $VPS:$HTMLDIR/assets/   # assets เปลี่ยนรอบนี้"
+fi
 echo "  rsync -e \"ssh -i $KEY\" -av index.html $VPS:$HTMLDIR/index.html"
 if [[ -n "$SW_CHANGED" ]]; then
 echo "  rsync -e \"ssh -i $KEY\" -av sw.js $VPS:$HTMLDIR/sw.js      # sw.js เปลี่ยนรอบนี้"
