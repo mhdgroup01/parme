@@ -35,6 +35,7 @@ NOTIFY pgrst, 'reload schema';
 --    select user_id, category, count(*) from svc_posts where status='open' group by 1,2 having count(*)>1;
 --  ดูว่าใครมีอะไรเปิดอยู่บ้าง:
 --    select user_id, category, title from svc_posts where status='open' order by user_id, category;
---  ถ้าวันหลังอยากให้แยกตามฝั่ง (รับเฮ็ด/หาคนเฮ็ด ลงหมวดเดียวกันได้ทั้งคู่):
---    drop index svc_posts_one_open_per_cat_idx;
---    create unique index svc_posts_one_open_per_cat_idx on svc_posts (user_id, category, side) where status='open';
+--
+-- ⚠️ ถูกแทนที่แล้วโดย 2026-08-14-svc-one-post-per-cat-side.sql (v3.7.440)
+--    เจ้าของสั่งให้แยกตามฝั่ง ⇒ index ตัวนี้ถูก drop ทิ้ง เหลือ (user_id, category, side)
+--    ส่วน UPDATE ปิดตัวซ้ำข้างบนยังคงผลอยู่ (ทั้งสองอันเป็นฝั่ง offer เหมือนกัน จึงยังชนกันตามกฎใหม่)
